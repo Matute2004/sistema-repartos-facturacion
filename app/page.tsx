@@ -1,69 +1,144 @@
-import Image from "next/image";
+import Link from "next/link";
+import { getMetricasDashboard } from "@/lib/data/dashboard";
+import { fechaHoyLocal, formatPesos } from "@/lib/types";
+import { Card, PageHeader } from "@/app/components/ui/display";
 
-export default function Home() {
+export const metadata = { title: "Dashboard" };
+
+const accesosRapidos = [
+  {
+    href: "/clientes",
+    titulo: "Clientes",
+    descripcion: "Cargar o actualizar clientes",
+  },
+  {
+    href: "/repartos",
+    titulo: "Repartos",
+    descripcion: "Hojas de ruta del día",
+  },
+  {
+    href: "/remitos",
+    titulo: "Remitos",
+    descripcion: "Emitir y organizar remitos",
+  },
+  {
+    href: "/facturacion",
+    titulo: "Facturación",
+    descripcion: "Atajo a AFIP / facturación",
+  },
+  {
+    href: "/gastos",
+    titulo: "Gastos",
+    descripcion: "Registrar gastos operativos",
+  },
+];
+
+export default async function Home() {
+  const metricas = await getMetricasDashboard();
+  const hoy = fechaHoyLocal();
+  const mesLegible = new Intl.DateTimeFormat("es-AR", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(`${hoy.slice(0, 8)}01T12:00:00`));
+  const diaLegible = new Intl.DateTimeFormat("es-AR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(new Date(`${hoy}T12:00:00`));
+
+  const tarjetas = [
+    {
+      label: "Clientes registrados",
+      valor: String(metricas.clientes),
+      detalle: "Base de clientes actual",
+      href: "/clientes",
+    },
+    {
+      label: "Gastos · mes actual",
+      valor: formatPesos(metricas.gastosMesCentavos),
+      detalle: `Acumulado en ${mesLegible}`,
+      href: "/gastos",
+    },
+    {
+      label: "Repartos de hoy",
+      valor: String(metricas.repartosHoy),
+      detalle: "Hojas de ruta programadas",
+      href: "/repartos",
+    },
+    {
+      label: "Remitos pendientes de hoy",
+      valor: String(metricas.remitosHoyPendientes),
+      detalle: "Aún en estado pendiente",
+      href: "/remitos",
+    },
+    {
+      label: "Remitos por asignar",
+      valor: String(metricas.remitosPorAsignar),
+      detalle: "Sin reparto asignado",
+      href: "/repartos",
+    },
+  ];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div>
+      <PageHeader
+        title="Dashboard"
+        description={`Panorama del día · ${diaLegible}`}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {tarjetas.map((tarjeta) => (
+          <Link key={tarjeta.label} href={tarjeta.href} className="block">
+            <Card className="h-full p-5 transition-shadow hover:shadow-md">
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                {tarjeta.label}
+              </p>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-zinc-900">
+                {tarjeta.valor}
+              </p>
+              <p className="mt-1 text-xs text-zinc-400">{tarjeta.detalle}</p>
+            </Card>
+          </Link>
+        ))}
+
+        <Card className="flex flex-col justify-center gap-3 border-dashed p-5">
+          <p className="text-sm font-medium text-zinc-700">
+            Empezar a trabajar
           </p>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/remitos"
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+            >
+              + Nuevo remito
+            </Link>
+            <Link
+              href="/gastos"
+              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+            >
+              Registrar gasto
+            </Link>
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-8">
+        <h2 className="mb-3 text-base font-semibold text-zinc-900">
+          Accesos rápidos
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {accesosRapidos.map((acceso) => (
+            <Link key={acceso.href} href={acceso.href}>
+              <Card className="h-full p-4 transition-colors hover:border-emerald-300">
+                <p className="text-sm font-semibold text-zinc-900">
+                  {acceso.titulo}
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">{acceso.descripcion}</p>
+              </Card>
+            </Link>
+          ))}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
