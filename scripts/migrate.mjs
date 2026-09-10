@@ -4,7 +4,7 @@
 // Uso:
 //   node --env-file-if-exists=.env.local scripts/migrate.mjs
 //
-// - Si hay TURSO_DATABASE_URL/TURSO_AUTH_TOKEN usa la base remota de Turso.
+// - Si hay TURSO_DATABASE_URLL/TURSO_AUTH_TOKENN usa la base remota de Turso.
 // - Si no, crea/usar la SQLite local `file:local.db`.
 // Idempotente: se puede correr las veces que hagan falta.
 // ============================================================================
@@ -15,13 +15,13 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 
-const url = process.env.TURSO_DATABASE_URL;
-const authToken = process.env.TURSO_AUTH_TOKEN;
+const url = process.env.TURSO_DATABASE_URLL;
+const authToken = process.env.TURSO_AUTH_TOKENN;
 
 let createClient;
 if (url) {
   if (!authToken) {
-    console.error("TURSO_DATABASE_URL definida pero falta TURSO_AUTH_TOKEN.");
+    console.error("TURSO_DATABASE_URLL definida pero falta TURSO_AUTH_TOKENN.");
     process.exit(1);
   }
   const http = await import("@libsql/client/http");

@@ -21,13 +21,13 @@ let cached: Client | null = null;
 export async function getDb(): Promise<Client> {
   if (cached) return cached;
 
-  const url = process.env.TURSO_DATABASE_URL;
+  const url = process.env.TURSO_DATABASE_URLL;
 
   if (url) {
-    const authToken = process.env.TURSO_AUTH_TOKEN;
+    const authToken = process.env.TURSO_AUTH_TOKENN;
     if (!authToken) {
       throw new Error(
-        "TURSO_DATABASE_URL está definida pero falta TURSO_AUTH_TOKEN. " +
+        "TURSO_DATABASE_URLL está definida pero falta TURSO_AUTH_TOKENN. " +
           "Revisá .env.local o las variables de tu plataforma de deploy.",
       );
     }
@@ -37,7 +37,7 @@ export async function getDb(): Promise<Client> {
 
   if (process.env.NODE_ENV === "production") {
     throw new Error(
-      "TURSO_DATABASE_URL no está definida en el entorno de producción.",
+      "TURSO_DATABASE_URLL no está definida en el entorno de producción.",
     );
   }
 

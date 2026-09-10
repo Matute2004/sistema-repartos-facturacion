@@ -10,7 +10,7 @@ export async function GET() {
     const result = await db.execute("SELECT 1 AS ok");
     return Response.json({
       ok: true,
-      db: process.env.TURSO_DATABASE_URL ? "turso" : "local",
+      db: process.env.TURSO_DATABASE_URLL ? "turso" : "local",
       result: result.rows[0],
     });
   } catch (error) {
