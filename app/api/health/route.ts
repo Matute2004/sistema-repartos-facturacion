@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getDb } from "@/lib/db";
 
 /**
  * Endpoint de prueba de conexión a la base de datos.
@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
  */
 export async function GET() {
   try {
+    const db = await getDb();
     const result = await db.execute("SELECT 1 AS ok");
     return Response.json({
       ok: true,
@@ -13,6 +14,7 @@ export async function GET() {
       result: result.rows[0],
     });
   } catch (error) {
+    console.error("[health] error de base de datos:", error);
     return Response.json(
       {
         ok: false,
