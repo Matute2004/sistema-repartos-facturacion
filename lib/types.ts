@@ -121,6 +121,27 @@ export interface Vehiculo {
 }
 
 // ----------------------------------------------------------------------------
+// Usuarios y sesión
+// ----------------------------------------------------------------------------
+export type RolUsuario = "admin" | "operador";
+
+export interface Usuario {
+  id: number;
+  nombre: string;
+  passwordHash: string;
+  rol: RolUsuario;
+  creadoEn: string;
+  actualizadoEn: string;
+}
+
+/** Datos de sesión visibles para la UI (nunca el password). */
+export interface UsuarioSesion {
+  id: number;
+  nombre: string;
+  rol: RolUsuario;
+}
+
+// ----------------------------------------------------------------------------
 // Utilidades de dinero y fechas
 // ----------------------------------------------------------------------------
 

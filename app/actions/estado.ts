@@ -17,3 +17,11 @@ export const estadoInicialImportacion: EstadoImportacion = {
   error: null,
   resumen: null,
 };
+
+/** Estado del formulario de cambio de contraseña (cuenta). */
+export interface EstadoCuenta {
+  error: string | null;
+  ok: boolean;
+}
+
+export const estadoInicialCuenta: EstadoCuenta = { error: null, ok: false };

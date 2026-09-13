@@ -1,0 +1,36 @@
+import { redirect } from "next/navigation";
+import { obtenerUsuarioActual } from "@/lib/auth";
+import { Card, CardHeader } from "@/app/components/ui/display";
+import { LoginForm } from "@/app/components/auth/LoginForm";
+
+export const metadata = { title: "Ingresar" };
+
+export default async function LoginPage() {
+  const usuario = await obtenerUsuarioActual();
+  if (usuario) redirect("/");
+
+  return (
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 text-center">
+          <div className="mx-auto grid size-12 place-items-center rounded-xl bg-emerald-500 text-lg font-black text-zinc-950">
+            R
+          </div>
+          <h1 className="mt-4 text-xl font-bold tracking-tight text-zinc-900">
+            Ohana Comisiones
+          </h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            Ingresá para gestionar clientes, repartos, remitos y más.
+          </p>
+        </div>
+
+        <Card className="p-5">
+          <CardHeader title="Iniciar sesión" />
+          <div className="px-5 pb-5 pt-4">
+            <LoginForm />
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}

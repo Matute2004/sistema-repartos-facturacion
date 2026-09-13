@@ -136,7 +136,7 @@ export async function eliminarClienteAction(
 
   revalidatePath("/clientes");
   revalidatePath("/");
-  redirect("/");
+  redirect("/clientes");
 }
 
 // ----------------------------------------------------------------------------
@@ -213,12 +213,7 @@ export async function importarClientesAction(
   revalidatePath("/clientes");
   revalidatePath("/");
 
-  const partes: string[] = [`${importados} importado(s)`];
-  if (sinNombre > 0) partes.push(`${sinNombre} sin nombre`);
-  if (errores > 0) partes.push(`${errores} con error`);
-
-  return {
-    error: null,
-    resumen: `Importación completa: ${partes.join(", ")}.`,
-  };
+  // Ir a la lista de clientes con un resumen en la URL. La página de /clientes
+  // muestra el banner con los resultados de la importación.
+  redirect(`/clientes?importado=${importados}&sinNombre=${sinNombre}&errores=${errores}`);
 }

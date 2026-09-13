@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { estadoInicial, type EstadoAction } from "@/app/actions/estado";
+import type { EstadoAction } from "@/app/actions/estado";
 import {
   crearGasto,
   eliminarGasto as eliminarGastoDb,
@@ -92,5 +92,3 @@ export async function eliminarGastoAction(
   revalidatePath("/gastos");
   return { error: null };
 }
-
-export { estadoInicial };

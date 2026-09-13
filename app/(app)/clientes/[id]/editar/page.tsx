@@ -34,8 +34,8 @@ export default async function EditarClientePage({
       <Card className="mt-6 max-w-2xl border-red-200 p-5">
         <h2 className="text-sm font-semibold text-red-700">Zona de peligro</h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Eliminar al cliente es definitivo. Se vuelve al dashboard después de
-          borrarlo.
+          Eliminar al cliente es definitivo. Después de borrarlo se vuelve a la
+          lista de clientes.
         </p>
         <div className="mt-3">
           <ClienteDeleteButton id={cliente.id} nombre={cliente.nombre} />

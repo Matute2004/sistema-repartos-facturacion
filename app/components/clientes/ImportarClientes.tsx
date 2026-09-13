@@ -212,6 +212,12 @@ export function ImportarClientes() {
             </div>
           )}
 
+          {!errorParseo && estado.error && (
+            <div className="px-5 py-3">
+              <FormError message={estado.error} />
+            </div>
+          )}
+
           {parseo && parseo.mapa.length === 0 && (
             <p className="px-5 py-4 text-sm text-zinc-500">
               No se detectaron columnas reconocibles. Revisá que la primera fila
@@ -259,19 +265,11 @@ export function ImportarClientes() {
               )}
 
               <div className="flex flex-wrap items-center gap-3 border-t border-zinc-100 px-5 py-3">
-                {hayResultado && (
-                  <p className="text-sm text-zinc-600">
-                    {estado.resumen ?? ""}
-                  </p>
-                )}
-
-                {hayResultado && (
+                {hayResultado ? (
                   <Button variant="secondary" onClick={limpiar}>
                     Importar más
                   </Button>
-                )}
-
-                {!hayResultado && (
+                ) : (
                   <Button variant="ghost" onClick={limpiar}>
                     Cancelar
                   </Button>

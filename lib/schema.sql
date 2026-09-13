@@ -106,3 +106,18 @@ CREATE TABLE IF NOT EXISTS vehiculos (
 );
 
 CREATE INDEX IF NOT EXISTS idx_vehiculos_nombre     ON vehiculos(nombre);
+
+-- ----------------------------------------------------------------------------
+-- Usuarios del sistema (login con sesión)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS usuarios (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre          TEXT NOT NULL UNIQUE,          -- nombre visible (ej: Matute)
+  password_hash   TEXT NOT NULL,                 -- scrypt: salt:hash
+  rol             TEXT NOT NULL DEFAULT 'operador'
+                  CHECK (rol IN ('admin', 'operador')),
+  creado_en       TEXT NOT NULL DEFAULT (datetime('now')),
+  actualizado_en  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_usuarios_nombre    ON usuarios(nombre);
