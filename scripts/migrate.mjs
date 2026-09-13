@@ -16,15 +16,14 @@ import { randomBytes, scryptSync } from "node:crypto";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 
-// Acepta también las viejas variantes con typo (TURSO_DATABASE_URLL /
-// TURSO_AUTH_TOKENN) por compatibilidad con configs ya existentes.
-const url = process.env.TURSO_DATABASE_URL || process.env.TURSO_DATABASE_URLL;
-const authToken = process.env.TURSO_AUTH_TOKEN || process.env.TURSO_AUTH_TOKENN;
+// Nombres históricos del proyecto (con doble letra): usalos igual en Vercel.
+const url = process.env.TURSO_DATABASE_URLL;
+const authToken = process.env.TURSO_AUTH_TOKENN;
 
 let createClient;
 if (url) {
   if (!authToken) {
-    console.error("TURSO_DATABASE_URL definida pero falta TURSO_AUTH_TOKEN.");
+    console.error("TURSO_DATABASE_URLL definida pero falta TURSO_AUTH_TOKENN.");
     process.exit(1);
   }
   const http = await import("@libsql/client/http");

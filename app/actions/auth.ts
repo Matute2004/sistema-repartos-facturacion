@@ -53,7 +53,7 @@ export async function iniciarSesionAction(
     return {
       error:
         "No se pudo conectar con la base de datos (Turso). " +
-        "Revisá las variables TURSO_DATABASE_URL / TURSO_AUTH_TOKEN en Vercel " +
+        "Revisá las variables TURSO_DATABASE_URLL / TURSO_AUTH_TOKENN en Vercel " +
         "e intentá de nuevo.",
     };
   }
