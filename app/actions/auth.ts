@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { EstadoAction, EstadoCuenta } from "@/app/actions/estado";
 import { obtenerUsuarioActual } from "@/lib/auth";
@@ -13,6 +13,19 @@ import { hashearPassword, verificarPassword } from "@/lib/passwords";
 
 function texto(formData: FormData, campo: string): string {
   return String(formData.get(campo) ?? "").trim();
+}
+
+/**
+ * La cookie de sesión debe marcarse `Secure` solo cuando la conexión es
+ * realmente HTTPS (ej: Vercel). Si se hostea con `next start` por http
+ * (localhost o red local) y la marcamos Secure, el navegador no la guarda y
+ * el login "no encuentra la página" tras entrar.
+ */
+async function esConexionSegura(): Promise<boolean> {
+  const encabezados = await headers();
+  const proto = (encabezados.get("x-forwarded-proto") ?? "").toLowerCase();
+  const ssl = (encabezados.get("x-forwarded-ssl") ?? "").toLowerCase();
+  return proto === "https" || ssl === "on";
 }
 
 // ----------------------------------------------------------------------------
@@ -39,7 +52,7 @@ export async function iniciarSesionAction(
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && (await esConexionSegura()),
     maxAge: 60 * 60 * 24 * 30, // 30 días
   });
 

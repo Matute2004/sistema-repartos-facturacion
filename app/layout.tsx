@@ -19,6 +19,10 @@ export const metadata: Metadata = {
   },
   description:
     "Ohana Comisiones — sistema de gestión: clientes, repartos, remitos, gastos y facturación.",
+  icons: {
+    icon: [{ url: "/ohana.jpeg", sizes: "any", type: "image/jpeg" }],
+    apple: [{ url: "/ohana.jpeg", sizes: "any", type: "image/jpeg" }],
+  },
 };
 
 // Todas las páginas leen datos de la base (Turso). Si se prerenderizaran como

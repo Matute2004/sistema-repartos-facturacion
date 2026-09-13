@@ -33,8 +33,9 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Excluye login, ruta de salud, assets de Next y favicon.
+  // Excluye login, ruta de salud, assets de Next, favicon y archivos
+  // estáticos servidos desde /public (ej: el logo ohana.jpeg).
   matcher: [
-    "/((?!login|api/health|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|api/health|_next/static|_next/image|favicon\\.ico|ohana\\.jpeg).*)",
   ],
 };
