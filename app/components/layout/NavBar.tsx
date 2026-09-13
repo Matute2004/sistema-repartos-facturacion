@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { NavLinks } from "@/app/components/layout/NavLinks";
 import { cerrarSesionAction } from "@/app/actions/auth";
 import type { UsuarioSesion } from "@/lib/types";
@@ -21,11 +22,15 @@ export function NavBar({ usuario }: { usuario: UsuarioSesion }) {
   return (
     <aside className="bg-zinc-900 text-zinc-100 lg:min-h-screen lg:sticky lg:top-0 lg:self-start">
       <div className="flex items-center gap-2 px-4 py-4 lg:px-5 lg:py-6">
-        <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-emerald-500 text-sm font-black text-zinc-950">
-          R
-        </div>
+        <Image
+          src="/ohana.jpeg"
+          alt="Logo Ohana Comisiones"
+          width={36}
+          height={36}
+          className="size-9 shrink-0 rounded-lg object-cover ring-1 ring-zinc-800"
+        />
         <div className="leading-tight">
-          <p className="text-sm font-semibold tracking-tight">Repartos</p>
+          <p className="text-sm font-semibold tracking-tight">Ohana Comisiones</p>
           <p className="text-[11px] text-zinc-400">Gestión del negocio</p>
         </div>
       </div>
