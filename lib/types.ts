@@ -10,6 +10,8 @@
 // ----------------------------------------------------------------------------
 export interface Cliente {
   id: number;
+  /** N° visible asignado automáticamente al cargar el cliente (puede ser null en clientes previos). */
+  numero: number | null;
   nombre: string;
   cuit: string | null;
   direccion: string | null;
@@ -59,9 +61,14 @@ export interface Reparto {
   id: number;
   fecha: string;
   estado: EstadoReparto;
-  chofer: string | null;
-  vehiculo: string | null;
-  notas: string | null;
+  /** Quién envía / entrega el reparto (columna `chofer` en la DB). */
+  enviadoPor: string | null;
+  /** Quién recibe el reparto (columna `vehiculo` en la DB). */
+  recibidoPor: string | null;
+  /** Observaciones del reparto (columna `notas` en la DB). */
+  observaciones: string | null;
+  /** Suma del valor de todos los remitos asignados, en centavos. */
+  valorCentavos: number;
   creadoEn: string;
 }
 
@@ -75,6 +82,8 @@ export interface Remito {
   fecha: string;
   estado: EstadoRemito;
   observaciones: string | null;
+  /** Suma del valor de sus items, en centavos. */
+  valorCentavos: number;
   creadoEn: string;
 }
 

@@ -5,7 +5,7 @@ import {
   listarRemitosDelReparto,
   listarRemitosPendientesSinAsignar,
 } from "@/lib/data/remitos";
-import { formatFecha } from "@/lib/types";
+import { formatFecha, formatPesos } from "@/lib/types";
 import { ButtonLink } from "@/app/components/ui/form";
 import {
   Badge,
@@ -75,25 +75,29 @@ export default async function DetalleRepartoPage({
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Chofer
+                Envía
               </p>
               <p className="mt-1 text-sm text-zinc-900">
-                {reparto.chofer ?? <span className="text-zinc-400">—</span>}
+                {reparto.enviadoPor ?? (
+                  <span className="text-zinc-400">—</span>
+                )}
               </p>
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Vehículo
+                Recibe
               </p>
               <p className="mt-1 text-sm text-zinc-900">
-                {reparto.vehiculo ?? <span className="text-zinc-400">—</span>}
+                {reparto.recibidoPor ?? (
+                  <span className="text-zinc-400">—</span>
+                )}
               </p>
             </div>
           </div>
 
-          {reparto.notas && (
+          {reparto.observaciones && (
             <p className="mt-4 rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
-              {reparto.notas}
+              {reparto.observaciones}
             </p>
           )}
 
@@ -122,6 +126,7 @@ export default async function DetalleRepartoPage({
                   <Th>N°</Th>
                   <Th>Cliente</Th>
                   <Th>Estado</Th>
+                  <Th className="text-right">Valor</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -140,6 +145,9 @@ export default async function DetalleRepartoPage({
                       <Badge tone={TONE_ESTADO_REMITO[remito.estado]}>
                         {ETIQUETA_ESTADO_REMITO[remito.estado]}
                       </Badge>
+                    </Td>
+                    <Td className="whitespace-nowrap text-right font-medium text-zinc-900">
+                      {formatPesos(remito.valorCentavos)}
                     </Td>
                   </tr>
                 ))}

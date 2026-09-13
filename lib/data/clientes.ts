@@ -6,6 +6,7 @@ type FilaCliente = Record<string, unknown>;
 function mapearCliente(fila: FilaCliente): Cliente {
   return {
     id: Number(fila.id),
+    numero: fila.numero != null ? Number(fila.numero) : null,
     nombre: String(fila.nombre),
     cuit: fila.cuit ? String(fila.cuit) : null,
     direccion: fila.direccion ? String(fila.direccion) : null,
@@ -22,10 +23,10 @@ function mapearCliente(fila: FilaCliente): Cliente {
 export async function listarClientes(): Promise<Cliente[]> {
   const db = await getDb();
   const resultado = await db.execute(
-    `SELECT id, nombre, cuit, direccion, localidad, telefono, email, notas,
+    `SELECT id, numero, nombre, cuit, direccion, localidad, telefono, email, notas,
             creado_en, actualizado_en
      FROM clientes
-     ORDER BY nombre COLLATE NOCASE ASC`,
+     ORDER BY COALESCE(numero, 999999) ASC, nombre COLLATE NOCASE ASC`,
   );
   return resultado.rows.map((fila) => mapearCliente(fila as FilaCliente));
 }
@@ -34,7 +35,7 @@ export async function listarClientes(): Promise<Cliente[]> {
 export async function obtenerCliente(id: number): Promise<Cliente | null> {
   const db = await getDb();
   const resultado = await db.execute(
-    `SELECT id, nombre, cuit, direccion, localidad, telefono, email, notas,
+    `SELECT id, numero, nombre, cuit, direccion, localidad, telefono, email, notas,
             creado_en, actualizado_en
      FROM clientes
      WHERE id = ?`,
@@ -62,10 +63,18 @@ export type DatosEditarCliente = DatosNuevoCliente;
  */
 export async function crearCliente(datos: DatosNuevoCliente): Promise<number> {
   const db = await getDb();
+
+  // N° visible autoasignado: el que le sigue al mayor número existente.
+  const resNumero = await db.execute(
+    "SELECT COALESCE(MAX(numero), 0) + 1 AS proximo FROM clientes",
+  );
+  const numero = Number((resNumero.rows[0] as FilaCliente).proximo || 1);
+
   const resultado = await db.execute(
-    `INSERT INTO clientes (nombre, cuit, direccion, localidad, telefono, email, notas)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO clientes (numero, nombre, cuit, direccion, localidad, telefono, email, notas)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
+      numero,
       datos.nombre,
       datos.cuit ?? null,
       datos.direccion ?? null,

@@ -44,6 +44,20 @@ try {
   console.log(`Migrando base de datos (${url ? "Turso" : "local.db"})...`);
   await db.executeMultiple(sql);
 
+  // Columnas agregadas en versiones posteriores al esquema inicial.
+  // `numero` (N° visible de cliente) se asigna automáticamente al dar de alta.
+  try {
+    await db.execute("ALTER TABLE clientes ADD COLUMN numero INTEGER");
+  } catch (error) {
+    const mensaje = String(error);
+    if (
+      !mensaje.includes("duplicate column") &&
+      !mensaje.includes("already has column")
+    ) {
+      throw error;
+    }
+  }
+
   const resultado = await db.execute(
     "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
   );

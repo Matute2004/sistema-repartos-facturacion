@@ -23,6 +23,10 @@ export default async function DetalleClientePage({
   if (!cliente) notFound();
 
   const filas: Array<{ label: string; valor: ReactNode }> = [
+    {
+      label: "N° de cliente",
+      valor: cliente.numero ?? <span className="text-zinc-400">Sin número</span>,
+    },
     { label: "CUIT / CUIL", valor: cliente.cuit ? <Badge tone="sky">{cliente.cuit}</Badge> : <span className="text-zinc-400">No cargado</span> },
     { label: "Domicilio", valor: [cliente.direccion, cliente.localidad].filter(Boolean).join(", ") || "—" },
     { label: "Teléfono", valor: cliente.telefono ?? "—" },
@@ -37,7 +41,11 @@ export default async function DetalleClientePage({
     <div>
       <PageHeader
         title={cliente.nombre}
-        description={`Cliente #${cliente.id}`}
+        description={
+          cliente.numero != null
+            ? `Cliente N° ${cliente.numero}`
+            : `Cliente #${cliente.id}`
+        }
         action={
           <div className="flex flex-wrap gap-2">
             <ButtonLink href="/clientes" variant="secondary">

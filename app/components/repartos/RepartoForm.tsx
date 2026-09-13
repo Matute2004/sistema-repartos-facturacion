@@ -39,30 +39,30 @@ export function RepartoForm({
             disabled={pending}
           />
         </Field>
-        <Field label="Chofer" htmlFor="chofer">
+        <Field label="Envía" htmlFor="enviado_por">
           <Input
-            id="chofer"
-            name="chofer"
-            placeholder="Ej: José Pérez"
+            id="enviado_por"
+            name="enviado_por"
+            placeholder="Ej: Juan Pérez"
             disabled={pending}
           />
         </Field>
-        <Field label="Vehículo" htmlFor="vehiculo">
+        <Field label="Recibe" htmlFor="recibido_por">
           <Input
-            id="vehiculo"
-            name="vehiculo"
-            placeholder="Ej: Fiat Ducato · ABC 123"
+            id="recibido_por"
+            name="recibido_por"
+            placeholder="Ej: María Gómez"
             disabled={pending}
           />
         </Field>
       </div>
 
-      <Field label="Notas" htmlFor="notas">
+      <Field label="Observaciones" htmlFor="observaciones">
         <Textarea
-          id="notas"
-          name="notas"
+          id="observaciones"
+          name="observaciones"
           rows={3}
-          placeholder="Observaciones generales de la hoja de ruta…"
+          placeholder="Observaciones de la hoja de ruta…"
           disabled={pending}
         />
       </Field>

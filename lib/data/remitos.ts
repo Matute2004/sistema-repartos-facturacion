@@ -15,6 +15,7 @@ function mapearRemito(fila: Fila): Remito {
     fecha: String(fila.fecha),
     estado: String(fila.estado) as EstadoRemito,
     observaciones: fila.observaciones ? String(fila.observaciones) : null,
+    valorCentavos: Number(fila.valor_centavos ?? 0),
     creadoEn: String(fila.creado_en),
   };
 }
@@ -24,9 +25,12 @@ export async function listarRemitos(): Promise<RemitoConCliente[]> {
   const db = await getDb();
   const resultado = await db.execute(
     `SELECT r.id, r.numero, r.cliente_id, r.reparto_id, r.fecha, r.estado,
-            r.observaciones, r.creado_en, c.nombre AS cliente_nombre
+            r.observaciones, r.creado_en, c.nombre AS cliente_nombre,
+            COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0) AS valor_centavos
      FROM remitos r
      JOIN clientes c ON c.id = r.cliente_id
+     LEFT JOIN remito_items ri ON ri.remito_id = r.id
+     GROUP BY r.id
      ORDER BY r.fecha DESC, r.id DESC`,
   );
   return resultado.rows.map((fila) => {
@@ -172,10 +176,13 @@ export async function listarRemitosDelReparto(
   const db = await getDb();
   const resultado = await db.execute(
     `SELECT r.id, r.numero, r.cliente_id, r.reparto_id, r.fecha, r.estado,
-            r.observaciones, r.creado_en, c.nombre AS cliente_nombre
+            r.observaciones, r.creado_en, c.nombre AS cliente_nombre,
+            COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0) AS valor_centavos
      FROM remitos r
      JOIN clientes c ON c.id = r.cliente_id
+     LEFT JOIN remito_items ri ON ri.remito_id = r.id
      WHERE r.reparto_id = ?
+     GROUP BY r.id
      ORDER BY r.numero ASC`,
     [repartoId],
   );
@@ -224,6 +231,7 @@ export async function obtenerRemitoCompleto(
   const clienteFila = resCliente.rows[0] as Fila;
   const cliente: Cliente = {
     id: Number(clienteFila.id),
+    numero: clienteFila.numero != null ? Number(clienteFila.numero) : null,
     nombre: String(clienteFila.nombre),
     cuit: clienteFila.cuit ? String(clienteFila.cuit) : null,
     direccion: clienteFila.direccion ? String(clienteFila.direccion) : null,

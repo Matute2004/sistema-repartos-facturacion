@@ -1,9 +1,10 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { getMetricasDashboard } from "@/lib/data/dashboard";
 import { fechaHoyLocal, formatPesos } from "@/lib/types";
 import { Card, PageHeader } from "@/app/components/ui/display";
 
-export const metadata = { title: "Dashboard" };
+export const metadata: Metadata = { title: "Ohana Comisiones" };
 
 const accesosRapidos = [
   {

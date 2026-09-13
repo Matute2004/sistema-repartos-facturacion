@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Repartos | Gestión",
-    template: "%s | Repartos y Facturación",
+    default: "Ohana Comisiones",
+    template: "%s | Ohana Comisiones",
   },
   description:
-    "Sistema de gestión interna: clientes, repartos, remitos, gastos y facturación.",
+    "Ohana Comisiones — sistema de gestión: clientes, repartos, remitos, gastos y facturación.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

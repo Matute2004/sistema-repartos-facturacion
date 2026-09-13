@@ -17,6 +17,20 @@ export async function migrate(): Promise<void> {
   // schema sirve para la base local.
   const db = await getDb();
   await db.executeMultiple(sql);
+
+  // Columnas agregadas en versiones posteriores al esquema inicial.
+  // `numero` (N° visible de cliente) se asigna automáticamente al dar de alta.
+  try {
+    await db.execute("ALTER TABLE clientes ADD COLUMN numero INTEGER");
+  } catch (error) {
+    const mensaje = String(error);
+    if (
+      !mensaje.includes("duplicate column") &&
+      !mensaje.includes("already has column")
+    ) {
+      throw error;
+    }
+  }
 }
 
 /** Devuelve la lista de tablas existentes (auxiliar de diagnóstico). */

@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { listarClientes } from "@/lib/data/clientes";
 import { ButtonLink } from "@/app/components/ui/form";
 import { PageHeader } from "@/app/components/ui/display";
-import { Card, Table, Td, Th } from "@/app/components/ui/display";
-import { Badge } from "@/app/components/ui/display";
+import { Card } from "@/app/components/ui/display";
+import { ClientesTablaBusqueda } from "@/app/components/clientes/ClientesTablaBusqueda";
 
 export const metadata = { title: "Clientes" };
 
@@ -33,55 +32,7 @@ export default async function ClientesPage() {
             </div>
           </div>
         ) : (
-          <Table>
-            <thead>
-              <tr>
-                <Th>Cliente</Th>
-                <Th>CUIT / CUIL</Th>
-                <Th>Dirección</Th>
-                <Th>Teléfono</Th>
-                <Th>Email</Th>
-                <Th />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {clientes.map((cliente) => (
-                <tr key={cliente.id} className="hover:bg-zinc-50">
-                  <Td>
-                    <Link
-                      href={`/clientes/${cliente.id}`}
-                      className="font-medium text-emerald-700 hover:underline"
-                    >
-                      {cliente.nombre}
-                    </Link>
-                  </Td>
-                  <Td>
-                    {cliente.cuit ?? (
-                      <Badge tone="zinc">Sin CUIT</Badge>
-                    )}
-                  </Td>
-                  <Td>
-                    {[
-                      cliente.direccion,
-                      cliente.localidad,
-                    ]
-                      .filter(Boolean)
-                      .join(", ") || <span className="text-zinc-400">—</span>}
-                  </Td>
-                  <Td>{cliente.telefono ?? <span className="text-zinc-400">—</span>}</Td>
-                  <Td>{cliente.email ?? <span className="text-zinc-400">—</span>}</Td>
-                  <Td className="text-right">
-                    <Link
-                      href={`/clientes/${cliente.id}/editar`}
-                      className="text-sm font-medium text-zinc-500 hover:text-emerald-700"
-                    >
-                      Editar
-                    </Link>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+          <ClientesTablaBusqueda clientes={clientes} />
         )}
       </Card>
     </div>

@@ -9,20 +9,28 @@ function mapearReparto(fila: Fila): Reparto {
     id: Number(fila.id),
     fecha: String(fila.fecha),
     estado: String(fila.estado) as EstadoReparto,
-    chofer: fila.chofer ? String(fila.chofer) : null,
-    vehiculo: fila.vehiculo ? String(fila.vehiculo) : null,
-    notas: fila.notas ? String(fila.notas) : null,
+    enviadoPor: fila.enviado_por ? String(fila.enviado_por) : null,
+    recibidoPor: fila.recibido_por ? String(fila.recibido_por) : null,
+    observaciones: fila.observaciones ? String(fila.observaciones) : null,
+    valorCentavos: Number(fila.valor_centavos ?? 0),
     creadoEn: String(fila.creado_en),
   };
 }
 
-/** Lista repartos ordenados por fecha (más reciente primero). */
+/** Lista repartos ordenados por fecha (más reciente primero) con el valor
+ *  total de los remitos asignados (suma de items). */
 export async function listarRepartos(): Promise<Reparto[]> {
   const db = await getDb();
   const resultado = await db.execute(
-    `SELECT id, fecha, estado, chofer, vehiculo, notas, creado_en
-     FROM repartos
-     ORDER BY fecha DESC, id DESC`,
+    `SELECT rp.id, rp.fecha, rp.estado,
+            rp.chofer AS enviado_por, rp.vehiculo AS recibido_por,
+            rp.notas AS observaciones, rp.creado_en,
+            COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0) AS valor_centavos
+     FROM repartos rp
+     LEFT JOIN remitos rt ON rt.reparto_id = rp.id
+     LEFT JOIN remito_items ri ON ri.remito_id = rt.id
+     GROUP BY rp.id
+     ORDER BY rp.fecha DESC, rp.id DESC`,
   );
   return resultado.rows.map((fila) => mapearReparto(fila as Fila));
 }
@@ -30,9 +38,9 @@ export async function listarRepartos(): Promise<Reparto[]> {
 export interface DatosNuevoReparto {
   fecha: string; // YYYY-MM-DD
   estado?: EstadoReparto;
-  chofer?: string;
-  vehiculo?: string;
-  notas?: string;
+  enviadoPor?: string;
+  recibidoPor?: string;
+  observaciones?: string;
 }
 
 /** Crea un reparto y devuelve su id. */
@@ -44,9 +52,9 @@ export async function crearReparto(datos: DatosNuevoReparto): Promise<number> {
     [
       datos.fecha,
       datos.estado ?? "pendiente",
-      datos.chofer ?? null,
-      datos.vehiculo ?? null,
-      datos.notas ?? null,
+      datos.enviadoPor ?? null,
+      datos.recibidoPor ?? null,
+      datos.observaciones ?? null,
     ],
   );
   return Number(resultado.lastInsertRowid ?? 0);
@@ -65,7 +73,9 @@ export async function actualizarEstadoReparto(
 export async function obtenerReparto(id: number): Promise<Reparto | null> {
   const db = await getDb();
   const resultado = await db.execute(
-    `SELECT id, fecha, estado, chofer, vehiculo, notas, creado_en
+    `SELECT id, fecha, estado,
+            chofer AS enviado_por, vehiculo AS recibido_por,
+            notas AS observaciones, creado_en, 0 AS valor_centavos
      FROM repartos
      WHERE id = ?`,
     [id],

@@ -41,9 +41,9 @@ export async function crearRepartoAction(
     const repartoId = await crearReparto({
       fecha,
       estado: "pendiente",
-      chofer: textoOpcional(formData, "chofer"),
-      vehiculo: textoOpcional(formData, "vehiculo"),
-      notas: textoOpcional(formData, "notas"),
+      enviadoPor: textoOpcional(formData, "enviado_por"),
+      recibidoPor: textoOpcional(formData, "recibido_por"),
+      observaciones: textoOpcional(formData, "observaciones"),
     });
 
     const remitosSeleccionados = formData

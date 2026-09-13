@@ -11,6 +11,7 @@ PRAGMA foreign_keys = ON;
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clientes (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  numero          INTEGER, -- N° visible, autoasignado al dar de alta
   nombre          TEXT NOT NULL,
   cuit            TEXT,
   direccion       TEXT,

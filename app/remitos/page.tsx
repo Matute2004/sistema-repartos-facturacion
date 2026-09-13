@@ -1,5 +1,5 @@
 import { listarRemitos } from "@/lib/data/remitos";
-import { formatFecha } from "@/lib/types";
+import { formatFecha, formatPesos } from "@/lib/types";
 import Link from "next/link";
 import { ButtonLink } from "@/app/components/ui/form";
 import {
@@ -52,6 +52,7 @@ export default async function RemitosPage() {
                 <Th>Fecha</Th>
                 <Th>Estado</Th>
                 <Th>Observaciones</Th>
+                <Th className="text-right">Valor</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -76,6 +77,9 @@ export default async function RemitosPage() {
                     {remito.observaciones ?? (
                       <span className="text-zinc-400">—</span>
                     )}
+                  </Td>
+                  <Td className="whitespace-nowrap text-right font-medium text-zinc-900">
+                    {formatPesos(remito.valorCentavos)}
                   </Td>
                 </tr>
               ))}
