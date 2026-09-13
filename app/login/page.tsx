@@ -36,12 +36,6 @@ export default async function LoginPage() {
             <LoginForm />
           </div>
         </Card>
-
-        <p className="mt-4 text-center text-xs text-zinc-400">
-          ¿Primera vez? Usuarios iniciales: <strong>Matute</strong> y{" "}
-          <strong>OhanaTeam</strong> (contraseña inicial igual al nombre de
-          usuario).
-        </p>
       </div>
     </div>
   );
