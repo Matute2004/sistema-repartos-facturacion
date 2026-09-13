@@ -22,6 +22,11 @@ export const metadata: Metadata = {
     "Ohana Comisiones — sistema de gestión: clientes, repartos, remitos, gastos y facturación.",
 };
 
+// Todas las páginas leen datos de la base (Turso). Si se prerenderizaran como
+// estáticas en el build quedarían congeladas con los datos de ese momento, por
+// eso forzamos renderizado dinámico en cada request.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { crearClienteAction } from "@/app/actions/clientes";
 import { estadoInicial } from "@/app/actions/estado";
+import type { Cliente } from "@/lib/types";
 import {
   Button,
   ButtonLink,
@@ -12,16 +13,40 @@ import {
   Textarea,
 } from "@/app/components/ui/form";
 
-/** Campos en común entre alta y edición de cliente. */
-export function CamposCliente({ disabled = false }: { disabled?: boolean }) {
+/**
+ * Campos en común entre alta y edición de cliente.
+ * En edición (`cliente` presente) arranca con los datos cargados.
+ */
+export function CamposCliente({
+  disabled = false,
+  cliente,
+}: {
+  disabled?: boolean;
+  cliente?: Cliente | null;
+}) {
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="N°" htmlFor="numero" required>
+          <Input
+            id="numero"
+            name="numero"
+            type="number"
+            min={1}
+            step={1}
+            required
+            defaultValue={cliente?.numero ?? ""}
+            placeholder="Ej: 12"
+            inputMode="numeric"
+            disabled={disabled}
+          />
+        </Field>
         <Field label="Nombre" htmlFor="nombre" required>
           <Input
             id="nombre"
             name="nombre"
             required
+            defaultValue={cliente?.nombre ?? ""}
             placeholder="Ej: Ferretería El Tornillo"
             disabled={disabled}
           />
@@ -34,6 +59,7 @@ export function CamposCliente({ disabled = false }: { disabled?: boolean }) {
           <Input
             id="cuit"
             name="cuit"
+            defaultValue={cliente?.cuit ?? ""}
             placeholder="20-12345678-9"
             inputMode="numeric"
             disabled={disabled}
@@ -43,6 +69,7 @@ export function CamposCliente({ disabled = false }: { disabled?: boolean }) {
           <Input
             id="direccion"
             name="direccion"
+            defaultValue={cliente?.direccion ?? ""}
             placeholder="Calle, número, piso…"
             disabled={disabled}
           />
@@ -51,6 +78,7 @@ export function CamposCliente({ disabled = false }: { disabled?: boolean }) {
           <Input
             id="localidad"
             name="localidad"
+            defaultValue={cliente?.localidad ?? ""}
             placeholder="Ej: San Nicolás"
             disabled={disabled}
           />
@@ -59,6 +87,7 @@ export function CamposCliente({ disabled = false }: { disabled?: boolean }) {
           <Input
             id="telefono"
             name="telefono"
+            defaultValue={cliente?.telefono ?? ""}
             placeholder="Ej: 336 412-3456"
             disabled={disabled}
           />
@@ -68,6 +97,7 @@ export function CamposCliente({ disabled = false }: { disabled?: boolean }) {
             id="email"
             name="email"
             type="email"
+            defaultValue={cliente?.email ?? ""}
             placeholder="cliente@empresa.com"
             disabled={disabled}
           />
@@ -78,6 +108,7 @@ export function CamposCliente({ disabled = false }: { disabled?: boolean }) {
           id="notas"
           name="notas"
           rows={3}
+          defaultValue={cliente?.notas ?? ""}
           placeholder="Forma de pago, horarios de entrega, observaciones…"
           disabled={disabled}
         />

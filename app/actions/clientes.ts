@@ -22,6 +22,14 @@ function normalizarCuit(cuit: string): string {
   return cuit.replace(/[^0-9-]/g, "").slice(0, 13);
 }
 
+/** Lee el N° del cliente del form y lo valida como entero positivo. */
+function leerNumero(formData: FormData): number | null {
+  const textoNumero = texto(formData, "numero");
+  if (!textoNumero) return null;
+  const numero = Number(textoNumero.replace(/\D/g, ""));
+  return Number.isInteger(numero) && numero > 0 ? numero : null;
+}
+
 // ----------------------------------------------------------------------------
 // Alta de cliente
 // ----------------------------------------------------------------------------
@@ -33,9 +41,14 @@ export async function crearClienteAction(
   if (!nombre) {
     return { error: "El nombre del cliente es obligatorio." };
   }
+  const numero = leerNumero(formData);
+  if (numero == null) {
+    return { error: "El N° del cliente es obligatorio y debe ser un número entero mayor a 0." };
+  }
 
   try {
     await crearCliente({
+      numero,
       nombre,
       cuit: normalizarCuit(textoOpcional(formData, "cuit") ?? ""),
       direccion: textoOpcional(formData, "direccion"),
@@ -52,6 +65,7 @@ export async function crearClienteAction(
   }
 
   revalidatePath("/clientes");
+  revalidatePath("/");
   redirect("/clientes");
 }
 
@@ -64,6 +78,7 @@ export async function actualizarClienteAction(
 ): Promise<EstadoAction> {
   const id = Number(formData.get("id"));
   const nombre = texto(formData, "nombre");
+  const numero = leerNumero(formData);
 
   if (!Number.isInteger(id) || id <= 0) {
     return { error: "Cliente inválido." };
@@ -71,9 +86,13 @@ export async function actualizarClienteAction(
   if (!nombre) {
     return { error: "El nombre del cliente es obligatorio." };
   }
+  if (numero == null) {
+    return { error: "El N° del cliente es obligatorio y debe ser un número entero mayor a 0." };
+  }
 
   try {
     await actualizarCliente(id, {
+      numero,
       nombre,
       cuit: normalizarCuit(textoOpcional(formData, "cuit") ?? ""),
       direccion: textoOpcional(formData, "direccion"),
@@ -90,6 +109,7 @@ export async function actualizarClienteAction(
   }
 
   revalidatePath("/clientes");
+  revalidatePath("/");
   redirect("/clientes");
 }
 
@@ -115,5 +135,6 @@ export async function eliminarClienteAction(
   }
 
   revalidatePath("/clientes");
-  return { error: null };
+  revalidatePath("/");
+  redirect("/");
 }

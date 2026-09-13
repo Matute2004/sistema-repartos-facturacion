@@ -46,6 +46,8 @@ export async function obtenerCliente(id: number): Promise<Cliente | null> {
 }
 
 export interface DatosNuevoCliente {
+  /** N° del cliente, cargado a mano en el alta. */
+  numero: number;
   nombre: string;
   cuit?: string;
   direccion?: string;
@@ -59,22 +61,17 @@ export type DatosEditarCliente = DatosNuevoCliente;
 
 /**
  * Crea un cliente y devuelve su id.
+ * El N° se carga a mano en el formulario de alta (no se autoasigna).
  * (La data ya validada/recortada llega desde las Server Actions.)
  */
 export async function crearCliente(datos: DatosNuevoCliente): Promise<number> {
   const db = await getDb();
 
-  // N° visible autoasignado: el que le sigue al mayor número existente.
-  const resNumero = await db.execute(
-    "SELECT COALESCE(MAX(numero), 0) + 1 AS proximo FROM clientes",
-  );
-  const numero = Number((resNumero.rows[0] as FilaCliente).proximo || 1);
-
   const resultado = await db.execute(
     `INSERT INTO clientes (numero, nombre, cuit, direccion, localidad, telefono, email, notas)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      numero,
+      datos.numero,
       datos.nombre,
       datos.cuit ?? null,
       datos.direccion ?? null,
@@ -87,7 +84,7 @@ export async function crearCliente(datos: DatosNuevoCliente): Promise<number> {
   return Number(resultado.lastInsertRowid ?? 0);
 }
 
-/** Actualiza los datos de un cliente. */
+/** Actualiza los datos de un cliente (el N° también se puede editar). */
 export async function actualizarCliente(
   id: number,
   datos: DatosEditarCliente,
@@ -95,10 +92,11 @@ export async function actualizarCliente(
   const db = await getDb();
   await db.execute(
     `UPDATE clientes
-     SET nombre = ?, cuit = ?, direccion = ?, localidad = ?, telefono = ?,
+     SET numero = ?, nombre = ?, cuit = ?, direccion = ?, localidad = ?, telefono = ?,
          email = ?, notas = ?, actualizado_en = datetime('now')
      WHERE id = ?`,
     [
+      datos.numero,
       datos.nombre,
       datos.cuit ?? null,
       datos.direccion ?? null,

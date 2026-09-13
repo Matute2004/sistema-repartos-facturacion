@@ -10,7 +10,7 @@
 // ----------------------------------------------------------------------------
 export interface Cliente {
   id: number;
-  /** N° visible asignado automáticamente al cargar el cliente (puede ser null en clientes previos). */
+  /** N° del cliente, cargado a mano al dar de alta. */
   numero: number | null;
   nombre: string;
   cuit: string | null;

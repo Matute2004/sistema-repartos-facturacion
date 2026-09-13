@@ -21,7 +21,7 @@ export function ClienteEditForm({ cliente }: { cliente: Cliente }) {
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="id" value={cliente.id} />
       <FormError message={estado.error} />
-      <CamposCliente disabled={pending} />
+      <CamposCliente disabled={pending} cliente={cliente} />
       <div className="flex flex-wrap gap-2 pt-2">
         <Button type="submit" disabled={pending}>
           {pending ? "Guardando…" : "Guardar cambios"}
