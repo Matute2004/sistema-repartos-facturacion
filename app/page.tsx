@@ -23,6 +23,11 @@ const accesosRapidos = [
     descripcion: "Emitir y organizar remitos",
   },
   {
+    href: "/vehiculos",
+    titulo: "Vehículos",
+    descripcion: "Flota, kilómetros y services",
+  },
+  {
     href: "/facturacion",
     titulo: "Facturación",
     descripcion: "Atajo a AFIP / facturación",
@@ -53,6 +58,12 @@ export default async function Home() {
       valor: String(metricas.clientes),
       detalle: "Base de clientes actual",
       href: "/clientes",
+    },
+    {
+      label: "Vehículos",
+      valor: String(metricas.vehiculos),
+      detalle: "Flota registrada en el sistema",
+      href: "/vehiculos",
     },
     {
       label: "Gastos · mes actual",

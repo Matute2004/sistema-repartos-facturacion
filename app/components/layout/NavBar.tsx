@@ -5,6 +5,7 @@ const linkItems = [
   { href: "/clientes", label: "Clientes" },
   { href: "/repartos", label: "Repartos" },
   { href: "/remitos", label: "Remitos" },
+  { href: "/vehiculos", label: "Vehículos" },
   { href: "/facturacion", label: "Facturación" },
   { href: "/gastos", label: "Gastos" },
 ];

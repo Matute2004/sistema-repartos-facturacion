@@ -95,6 +95,31 @@ export interface RemitoItem {
   precioUnitarioCentavos: number;
 }
 
+/**
+ * Formatea un entero como kilometraje argentino: 12345 → "12.345 km".
+ */
+export function formatKilometros(km: number): string {
+  return new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(km) + " km";
+}
+
+// ----------------------------------------------------------------------------
+// Vehículos (flota propia)
+// ----------------------------------------------------------------------------
+export interface Vehiculo {
+  id: number;
+  nombre: string;
+  patente: string | null;
+  marca: string | null;
+  modelo: string | null;
+  anio: number | null;
+  kilometros: number | null;
+  kmProximoService: number | null;
+  fechaUltimoService: string | null;
+  notas: string | null;
+  creadoEn: string;
+  actualizadoEn: string;
+}
+
 // ----------------------------------------------------------------------------
 // Utilidades de dinero y fechas
 // ----------------------------------------------------------------------------

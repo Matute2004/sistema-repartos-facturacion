@@ -3,6 +3,7 @@ import { fechaHoyLocal } from "@/lib/types";
 
 export interface MetricasDashboard {
   clientes: number;
+  vehiculos: number;
   gastosMesCentavos: number;
   repartosHoy: number;
   remitosHoyPendientes: number;
@@ -18,9 +19,16 @@ export async function getMetricasDashboard(): Promise<MetricasDashboard> {
   const hoy = fechaHoyLocal();
   const mes = hoy.slice(0, 7); // YYYY-MM
 
-  const [clientes, gastosMes, repartosHoy, remitosPendientes, remitosPorAsignar] =
-    await Promise.all([
+  const [
+    clientes,
+    vehiculos,
+    gastosMes,
+    repartosHoy,
+    remitosPendientes,
+    remitosPorAsignar,
+  ] = await Promise.all([
       db.execute("SELECT COUNT(*) AS total FROM clientes"),
+      db.execute("SELECT COUNT(*) AS total FROM vehiculos"),
       db.execute(
         "SELECT COALESCE(SUM(monto_centavos), 0) AS total FROM gastos WHERE substr(fecha, 1, 7) = ?",
         [mes],
@@ -40,6 +48,7 @@ export async function getMetricasDashboard(): Promise<MetricasDashboard> {
 
   return {
     clientes: numero(clientes.rows[0]),
+    vehiculos: numero(vehiculos.rows[0]),
     gastosMesCentavos: numero(gastosMes.rows[0]),
     repartosHoy: numero(repartosHoy.rows[0]),
     remitosHoyPendientes: numero(remitosPendientes.rows[0]),

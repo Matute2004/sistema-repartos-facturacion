@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { EstadoAction } from "@/app/actions/estado";
+import type { EstadoAction, EstadoImportacion } from "@/app/actions/estado";
 import {
   actualizarCliente,
   crearCliente,
@@ -137,4 +137,88 @@ export async function eliminarClienteAction(
   revalidatePath("/clientes");
   revalidatePath("/");
   redirect("/");
+}
+
+// ----------------------------------------------------------------------------
+// Importación masiva de clientes desde planilla Excel/CSV
+// ----------------------------------------------------------------------------
+
+function campoFila(fila: Record<string, unknown>, clave: string): string {
+  const valor = fila[clave];
+  return valor == null ? "" : String(valor).trim();
+}
+
+/**
+ * Importa clientes en lote. Recibe por FormData un JSON con un array de filas
+ * { numero?, nombre, cuit?, direccion?, localidad?, telefono?, email?, notas? }
+ * ya parseadas en el navegador (xlsx).
+ */
+export async function importarClientesAction(
+  _estado: EstadoImportacion,
+  formData: FormData,
+): Promise<EstadoImportacion> {
+  const filasJson = String(formData.get("filas") ?? "").trim();
+  if (!filasJson) {
+    return { error: "No se recibieron filas para importar.", resumen: null };
+  }
+
+  let filas: unknown;
+  try {
+    filas = JSON.parse(filasJson);
+  } catch (error) {
+    console.error("[clientes] JSON inválido en importación:", error);
+    return { error: "Los datos del archivo no se pudieron interpretar.", resumen: null };
+  }
+
+  if (!Array.isArray(filas)) {
+    return { error: "Los datos del archivo tienen un formato inesperado.", resumen: null };
+  }
+  if (filas.length === 0) {
+    return { error: "El archivo no tiene filas para importar.", resumen: null };
+  }
+
+  let importados = 0;
+  let sinNombre = 0;
+  let errores = 0;
+
+  for (const bruta of filas) {
+    const fila = (bruta ?? {}) as Record<string, unknown>;
+    const nombre = campoFila(fila, "nombre");
+    if (!nombre) {
+      sinNombre++;
+      continue;
+    }
+
+    const numeroTexto = campoFila(fila, "numero").replace(/\D/g, "");
+    const numero = numeroTexto ? Number(numeroTexto) : null;
+
+    try {
+      await crearCliente({
+        numero: numero && Number.isInteger(numero) && numero > 0 ? numero : null,
+        nombre,
+        cuit: campoFila(fila, "cuit") || undefined,
+        direccion: campoFila(fila, "direccion") || undefined,
+        localidad: campoFila(fila, "localidad") || undefined,
+        telefono: campoFila(fila, "telefono") || undefined,
+        email: campoFila(fila, "email") || undefined,
+        notas: campoFila(fila, "notas") || undefined,
+      });
+      importados++;
+    } catch (error) {
+      console.error("[clientes] error al importar fila:", nombre, error);
+      errores++;
+    }
+  }
+
+  revalidatePath("/clientes");
+  revalidatePath("/");
+
+  const partes: string[] = [`${importados} importado(s)`];
+  if (sinNombre > 0) partes.push(`${sinNombre} sin nombre`);
+  if (errores > 0) partes.push(`${errores} con error`);
+
+  return {
+    error: null,
+    resumen: `Importación completa: ${partes.join(", ")}.`,
+  };
 }

@@ -19,7 +19,7 @@ export async function migrate(): Promise<void> {
   await db.executeMultiple(sql);
 
   // Columnas agregadas en versiones posteriores al esquema inicial.
-  // `numero` (N° visible de cliente) se asigna automáticamente al dar de alta.
+  // `numero` (N° visible de cliente) se carga a mano al dar de alta.
   try {
     await db.execute("ALTER TABLE clientes ADD COLUMN numero INTEGER");
   } catch (error) {

@@ -11,7 +11,7 @@ PRAGMA foreign_keys = ON;
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clientes (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  numero          INTEGER, -- N° visible, autoasignado al dar de alta
+  numero          INTEGER, -- N° visible, cargado a mano al dar de alta
   nombre          TEXT NOT NULL,
   cuit            TEXT,
   direccion       TEXT,
@@ -86,3 +86,23 @@ CREATE INDEX IF NOT EXISTS idx_remitos_reparto     ON remitos(reparto_id);
 CREATE INDEX IF NOT EXISTS idx_remito_items_remito ON remito_items(remito_id);
 CREATE INDEX IF NOT EXISTS idx_gastos_fecha        ON gastos(fecha);
 CREATE INDEX IF NOT EXISTS idx_gastos_categoria    ON gastos(categoria);
+
+-- ----------------------------------------------------------------------------
+-- Vehículos (flota propia)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS vehiculos (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre            TEXT NOT NULL,                   -- nombre / alias del vehículo
+  patente           TEXT,                            -- patente / dominio
+  marca             TEXT,                            -- marca
+  modelo            TEXT,                            -- modelo
+  anio              INTEGER,                         -- año de fabricación
+  kilometros        INTEGER,                         -- odómetro actual
+  km_proximo_service INTEGER,                        -- km para el próximo service
+  fecha_ultimo_service TEXT,                         -- fecha del último service (YYYY-MM-DD)
+  notas             TEXT,
+  creado_en         TEXT NOT NULL DEFAULT (datetime('now')),
+  actualizado_en    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_vehiculos_nombre     ON vehiculos(nombre);

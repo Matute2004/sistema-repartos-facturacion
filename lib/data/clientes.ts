@@ -46,8 +46,9 @@ export async function obtenerCliente(id: number): Promise<Cliente | null> {
 }
 
 export interface DatosNuevoCliente {
-  /** N° del cliente, cargado a mano en el alta. */
-  numero: number;
+  /** N° del cliente. En el alta manual es obligatorio; en importaciones puede
+   *  venir null si la planilla no trae la columna. */
+  numero: number | null;
   nombre: string;
   cuit?: string;
   direccion?: string;

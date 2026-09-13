@@ -3,6 +3,7 @@ import { ButtonLink } from "@/app/components/ui/form";
 import { PageHeader } from "@/app/components/ui/display";
 import { Card } from "@/app/components/ui/display";
 import { ClientesTablaBusqueda } from "@/app/components/clientes/ClientesTablaBusqueda";
+import { ImportarClientes } from "@/app/components/clientes/ImportarClientes";
 
 export const metadata = { title: "Clientes" };
 
@@ -15,7 +16,14 @@ export default async function ClientesPage() {
       <PageHeader
         title="Clientes"
         description={`${clientes.length} clientes registrados · ${conTelefono} con teléfono`}
-        action={<ButtonLink href="/clientes/nuevo" variant="primary">+ Nuevo cliente</ButtonLink>}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <ImportarClientes />
+            <ButtonLink href="/clientes/nuevo" variant="primary">
+              + Nuevo cliente
+            </ButtonLink>
+          </div>
+        }
       />
 
       <Card>
