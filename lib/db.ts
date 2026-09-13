@@ -3,6 +3,17 @@ import { createClient as createRemoteClient, type Client } from "@libsql/client/
 let cached: Client | null = null;
 
 /**
+ * Resuelve una variable de entorno: primero el nombre canónico
+ * (`TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`) y, si no está, el viejo nombre
+ * con typo (`TURSO_DATABASE_URLL` / `TURSO_AUTH_TOKENN`) para no romper
+ * deploys que quedaron configurados así.
+ */
+function valorEnv(nombre: string, legado: string): string | undefined {
+  const valor = process.env[nombre] ?? process.env[legado];
+  return valor && valor.trim().length > 0 ? valor : undefined;
+}
+
+/**
  * Cliente de base de datos Turso (libSQL), seguro para entornos serverless.
  *
  * - En producción usa `@libsql/client/http`: cliente HTTP puro (protocolo
@@ -21,14 +32,14 @@ let cached: Client | null = null;
 export async function getDb(): Promise<Client> {
   if (cached) return cached;
 
-  const url = process.env.TURSO_DATABASE_URLL;
+  const url = valorEnv("TURSO_DATABASE_URL", "TURSO_DATABASE_URLL");
 
   if (url) {
-    const authToken = process.env.TURSO_AUTH_TOKENN;
+    const authToken = valorEnv("TURSO_AUTH_TOKEN", "TURSO_AUTH_TOKENN");
     if (!authToken) {
       throw new Error(
-        "TURSO_DATABASE_URLL está definida pero falta TURSO_AUTH_TOKENN. " +
-          "Revisá .env.local o las variables de tu plataforma de deploy.",
+        "TURSO_DATABASE_URL está definida pero falta TURSO_AUTH_TOKEN. " +
+          "Revisá .env.local o las variables de tu plataforma de deploy (Vercel).",
       );
     }
     cached = createRemoteClient({ url, authToken });
@@ -37,7 +48,8 @@ export async function getDb(): Promise<Client> {
 
   if (process.env.NODE_ENV === "production") {
     throw new Error(
-      "TURSO_DATABASE_URLL no está definida en el entorno de producción.",
+      "TURSO_DATABASE_URL no está definida en el entorno de producción. " +
+        "Configurala en el proyecto de Vercel junto con TURSO_AUTH_TOKEN y SESSION_SECRET.",
     );
   }
 

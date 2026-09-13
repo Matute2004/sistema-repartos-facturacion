@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { EstadoAction, EstadoCuenta } from "@/app/actions/estado";
 import { obtenerUsuarioActual } from "@/lib/auth";
 import { obtenerUsuarioPorNombre, actualizarPassword } from "@/lib/data/usuarios";
+import type { Usuario } from "@/lib/types";
 import {
   crearCookieSesion,
   NOMBRE_COOKIE_SESION,
@@ -42,19 +43,43 @@ export async function iniciarSesionAction(
     return { error: "Ingresá tu usuario y contraseña." };
   }
 
-  const usuario = await obtenerUsuarioPorNombre(nombre);
+  let usuario: Usuario | null;
+  try {
+    usuario = await obtenerUsuarioPorNombre(nombre);
+  } catch (error) {
+    // La base remota (Turso) no está alcanzable o mal configurada. En vez de
+    // tirar la página de error 500 de Vercel, mostramos un mensaje claro.
+    console.error("[auth] login: error de base de datos:", error);
+    return {
+      error:
+        "No se pudo conectar con la base de datos (Turso). " +
+        "Revisá las variables TURSO_DATABASE_URL / TURSO_AUTH_TOKEN en Vercel " +
+        "e intentá de nuevo.",
+    };
+  }
+
   if (!usuario || !verificarPassword(password, usuario.passwordHash)) {
     return { error: "Usuario o contraseña incorrectos." };
   }
 
   const cookieStore = await cookies();
-  cookieStore.set(NOMBRE_COOKIE_SESION, crearCookieSesion(usuario.id), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    secure: process.env.NODE_ENV === "production" && (await esConexionSegura()),
-    maxAge: 60 * 60 * 24 * 30, // 30 días
-  });
+  try {
+    cookieStore.set(NOMBRE_COOKIE_SESION, crearCookieSesion(usuario.id), {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      secure: process.env.NODE_ENV === "production" && (await esConexionSegura()),
+      maxAge: 60 * 60 * 24 * 30, // 30 días
+    });
+  } catch (error) {
+    // Por ejemplo si falta SESSION_SECRET en producción (Vercel).
+    console.error("[auth] login: error al crear la cookie de sesión:", error);
+    return {
+      error:
+        "No se pudo iniciar sesión: falta SESSION_SECRET en el entorno de " +
+        "deploy (Vercel). Configurala y reintentá.",
+    };
+  }
 
   redirect("/");
 }
