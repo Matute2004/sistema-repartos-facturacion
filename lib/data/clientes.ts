@@ -186,9 +186,26 @@ export interface ResultadoLoteClientes {
 }
 
 /**
- * Busca un cliente por nombre exacto (sin distinguir mayúsculas) o lo crea al
- * vuelo con ese nombre y el resto de los campos vacíos. Se usa cuando el
- * "Envía" del reparto es un cliente que todavía no está registrado.
+ * Normaliza un nombre para comparar sin sensibilidad a mayúsculas, tildes,
+ * espacios repetidos ni espacios al inicio/final: ej. " Jose  LOPEZ " -> "jose lopez".
+ */
+function normalizarNombre(nombre: string): string {
+  return nombre
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Busca un cliente por nombre sin duplicarlo o lo crea al vuelo con ese nombre
+ * y el resto de los campos vacíos. Se usa cuando el "Envía" del reparto es un
+ * cliente que todavía no está registrado.
+ *
+ * Primero busca coincidencia exacta sin distinguir mayúsculas (rápida en la DB);
+ * si no aparece, compara normalizado (ignorando mayúsculas, tildes y espacios)
+ * para que "Jose Lopez" reutilice a "José López" en vez de crear un duplicado.
  * Devuelve el id del cliente encontrado o creado.
  */
 export async function obtenerOCrearClientePorNombre(nombre: string): Promise<number> {
@@ -200,6 +217,18 @@ export async function obtenerOCrearClientePorNombre(nombre: string): Promise<num
   if (existente.rows.length > 0) {
     return Number((existente.rows[0] as FilaCliente).id);
   }
+
+  const normalizado = normalizarNombre(nombre);
+  if (normalizado) {
+    const todos = await db.execute(`SELECT id, nombre FROM clientes`);
+    const coincidencia = todos.rows.find(
+      (fila) => normalizarNombre(String((fila as FilaCliente).nombre)) === normalizado,
+    );
+    if (coincidencia) {
+      return Number((coincidencia as FilaCliente).id);
+    }
+  }
+
   return crearCliente({ nombre, numero: null });
 }
 

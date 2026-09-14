@@ -129,6 +129,19 @@ describe("flujo clientes", () => {
     expect(idExistente).toBe(idCreado);
     expect(await listarClientes()).toHaveLength(1);
   });
+
+  it("no duplica el cliente del reparto si el nombre varía en tildes o espacios", async () => {
+    const id = await crearCliente({ nombre: "José  López", numero: null });
+
+    // "Jose Lopez" (sin tilde, espacios juntos) reutiliza al existente.
+    const reutilizado = await obtenerOCrearClientePorNombre("  jose lopez ");
+    expect(reutilizado).toBe(id);
+
+    // Un nombre realmente distinto sí crea uno nuevo.
+    const otro = await obtenerOCrearClientePorNombre("María Del Mar");
+    expect(otro).not.toBe(id);
+    expect(await listarClientes()).toHaveLength(2);
+  });
 });
 
 describe("flujo remitos", () => {
@@ -297,6 +310,56 @@ describe("flujo repartos y asignación de remitos", () => {
     expect(repartosA[0].items[0].descripcion).toBe("Caja");
     expect(repartosA[0].valorCentavos).toBe(1000);
     expect(repartosA[0].formaPago).toBeNull();
+  });
+
+  it("ordena los repartos: pendientes arriba y completados abajo, ambos por fecha", async () => {
+    const clienteId = await crearClienteBasico(14);
+
+    // Pendientes: 10/09 y 11/09 y 13/09.
+    const pendienteViejo = await crearReparto({
+      fecha: "2026-09-10",
+      clienteId,
+      itemsMercaderia: [
+        { descripcion: "a", cantidad: 1, precioUnitarioCentavos: 100 },
+      ],
+    });
+    const pendienteMedio = await crearReparto({
+      fecha: "2026-09-11",
+      clienteId,
+      itemsMercaderia: [
+        { descripcion: "b", cantidad: 1, precioUnitarioCentavos: 100 },
+      ],
+    });
+    const pendienteNuevo = await crearReparto({
+      fecha: "2026-09-13",
+      clienteId,
+      itemsMercaderia: [
+        { descripcion: "c", cantidad: 1, precioUnitarioCentavos: 100 },
+      ],
+    });
+
+    // Completados: 09/09 y 12/09.
+    const completadoViejo = await crearReparto({ fecha: "2026-09-09", clienteId });
+    await actualizarEstadoReparto(completadoViejo, "completado");
+    const completadoNuevo = await crearReparto({ fecha: "2026-09-12", clienteId });
+    await actualizarEstadoReparto(completadoNuevo, "completado");
+
+    // Cancelado con fecha reciente: debe quedar al final de todos modos.
+    const cancelado = await crearReparto({ fecha: "2026-09-15", clienteId });
+    await actualizarEstadoReparto(cancelado, "cancelado");
+
+    const lista = await listarRepartos();
+    expect(lista.map((r) => r.id)).toEqual([
+      // Activos (pendiente/en curso), del más reciente al más viejo.
+      pendienteNuevo,
+      pendienteMedio,
+      pendienteViejo,
+      // Completados, también del más reciente al más viejo.
+      completadoNuevo,
+      completadoViejo,
+      // Cancelados, después de todo.
+      cancelado,
+    ]);
   });
 
   it("crea un remito ya asignado a un reparto y lo lista en listarRepartos().remitos", async () => {

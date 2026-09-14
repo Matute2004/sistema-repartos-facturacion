@@ -57,14 +57,25 @@ const SQL_SELECCION_REPARTO = `
   LEFT JOIN clientes c ON c.id = rp.cliente_id
 `;
 
-/** Lista repartos ordenados por fecha (más reciente primero) con el valor
- *  total (remitos asignados + mercadería directa) y los remitos asociados
- *  (id + número) para mostrarlos en la columna "Remitos". */
+/**
+ * Lista repartos con el valor total (remitos asignados + mercadería directa)
+ * y los remitos asociados (id + número) para mostrar en la columna "Remitos".
+ *
+ * Orden: primero los repartos activos (pendiente/en curso) ordenados por fecha
+ * (más reciente primero), después los completados también por fecha y al final
+ * los cancelados. Así el listado arranca con lo que falta hacer.
+ */
 export async function listarRepartos(): Promise<Reparto[]> {
   return consultarRepartosCompletos(
     `${SQL_SELECCION_REPARTO}
      GROUP BY rp.id
-     ORDER BY rp.fecha DESC, rp.id DESC`,
+     ORDER BY
+       CASE
+         WHEN rp.estado IN ('pendiente', 'en_curso') THEN 0
+         WHEN rp.estado = 'completado' THEN 1
+         ELSE 2
+       END ASC,
+       rp.fecha DESC, rp.id DESC`,
   );
 }
 
