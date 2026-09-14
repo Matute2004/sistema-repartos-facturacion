@@ -227,28 +227,37 @@ export async function obtenerRemitoCompleto(
 ): Promise<RemitoCompleto | null> {
   const db = await getDb();
 
-  // 1) Remito + total + datos del cliente en una sola consulta (JOIN). Se
-  //    listan columnas explícitas para no traer campos innecesarios.
-  const resultado = await db.execute(
-    `SELECT r.id, r.numero, r.cliente_id, r.reparto_id, r.fecha, r.estado,
-            r.observaciones, r.creado_en,
-            c.numero AS cliente_numero, c.nombre AS cliente_nombre,
-            c.cuit AS cliente_cuit, c.direccion AS cliente_direccion,
-            c.localidad AS cliente_localidad, c.telefono AS cliente_telefono,
-            c.email AS cliente_email, c.notas AS cliente_notas,
-            c.creado_en AS cliente_creado_en,
-            c.actualizado_en AS cliente_actualizado_en,
-            COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0) AS valor_centavos
-     FROM remitos r
-     JOIN clientes c ON c.id = r.cliente_id
-     LEFT JOIN remito_items ri ON ri.remito_id = r.id
-     WHERE r.id = ?
-     GROUP BY r.id`,
-    [id],
-  );
-  if (resultado.rows.length === 0) return null;
+  // 1 + 2) Remito + total + datos del cliente y sus items en un solo batch:
+  //    un único round-trip HTTP a Turso en vez de dos consultas secuenciales.
+  const [resRemito, resItems] = await db.batch([
+    {
+      sql: `SELECT r.id, r.numero, r.cliente_id, r.reparto_id, r.fecha, r.estado,
+                  r.observaciones, r.creado_en,
+                  c.numero AS cliente_numero, c.nombre AS cliente_nombre,
+                  c.cuit AS cliente_cuit, c.direccion AS cliente_direccion,
+                  c.localidad AS cliente_localidad, c.telefono AS cliente_telefono,
+                  c.email AS cliente_email, c.notas AS cliente_notas,
+                  c.creado_en AS cliente_creado_en,
+                  c.actualizado_en AS cliente_actualizado_en,
+                  COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0) AS valor_centavos
+           FROM remitos r
+           JOIN clientes c ON c.id = r.cliente_id
+           LEFT JOIN remito_items ri ON ri.remito_id = r.id
+           WHERE r.id = ?
+           GROUP BY r.id`,
+      args: [id],
+    },
+    {
+      sql: `SELECT id, remito_id, descripcion, cantidad, precio_unitario_centavos
+            FROM remito_items
+            WHERE remito_id = ?
+            ORDER BY id ASC`,
+      args: [id],
+    },
+  ]);
+  if (resRemito.rows.length === 0) return null;
 
-  const fila = resultado.rows[0] as Fila;
+  const fila = resRemito.rows[0] as Fila;
   const remito = mapearRemito(fila);
   const cliente: Cliente = {
     id: Number(fila.cliente_id),
@@ -263,15 +272,6 @@ export async function obtenerRemitoCompleto(
     creadoEn: String(fila.cliente_creado_en),
     actualizadoEn: String(fila.cliente_actualizado_en),
   };
-
-  // 2) Items del remito.
-  const resItems = await db.execute(
-    `SELECT id, remito_id, descripcion, cantidad, precio_unitario_centavos
-     FROM remito_items
-     WHERE remito_id = ?
-     ORDER BY id ASC`,
-    [id],
-  );
 
   const items: RemitoItem[] = resItems.rows.map((filaItem) => {
     const f = filaItem as Fila;

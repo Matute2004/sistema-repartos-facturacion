@@ -25,10 +25,9 @@ export const metadata: Metadata = {
   },
 };
 
-// Todas las páginas leen datos de la base (Turso). Si se prerenderizaran como
-// estáticas en el build quedarían congeladas con los datos de ese momento, por
-// eso forzamos renderizado dinámico en cada request.
-export const dynamic = "force-dynamic";
+// NOTA: `force-dynamic` NO se define acá. El layout `(app)/layout.tsx` ya fuerza
+// renderizado dinámico al usar `cookies()` (vía exigirAdmin). Eliminarlo de la raíz
+// permite que el shell HTML (fuentes, CSS) se sirva desde caché y mejora el TTFB.
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

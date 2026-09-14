@@ -48,6 +48,37 @@ export async function listarGastosDelMes(mes: string): Promise<Gasto[]> {
   return resultado.rows.map((fila) => mapearGasto(fila as FilaGasto));
 }
 
+export interface GastosDelMes {
+  gastos: Gasto[];
+  totalCentavos: number;
+}
+
+/**
+ * Lista los gastos de un mes y su total en UNA sola consulta (en vez de dos
+ * round-trips a Turso). Usa una window function para repetir el total en cada
+ * fila sin subconsulta correlacionada.
+ */
+export async function listarGastosDelMesConTotal(
+  mes: string,
+): Promise<GastosDelMes> {
+  const db = await getDb();
+  const resultado = await db.execute(
+    `SELECT id, fecha, categoria, descripcion, proveedor, monto_centavos, creado_en,
+            SUM(monto_centavos) OVER () AS total_centavos
+     FROM gastos
+     WHERE substr(fecha, 1, 7) = ?
+     ORDER BY fecha DESC, id DESC`,
+    [mes],
+  );
+  const filas = resultado.rows as FilaGasto[];
+  const totalCentavos =
+    filas.length > 0 ? Number(filas[0].total_centavos ?? 0) : 0;
+  return {
+    gastos: filas.map((fila) => mapearGasto(fila)),
+    totalCentavos,
+  };
+}
+
 /** Total en centavos de los gastos de un mes (YYYY-MM). */
 export async function totalGastosDelMes(mes: string): Promise<number> {
   const db = await getDb();

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { listarVehiculos } from "@/lib/data/vehiculos";
 import { ButtonLink } from "@/app/components/ui/form";
 import { PageHeader, Card } from "@/app/components/ui/display";
@@ -5,15 +6,12 @@ import { VehiculosTablaBusqueda } from "@/app/components/vehiculos/VehiculosTabl
 
 export const metadata = { title: "Vehículos" };
 
-export default async function VehiculosPage() {
-  const vehiculos = await listarVehiculos();
-  const conDatos = vehiculos.filter((v) => v.patente || v.marca).length;
-
+export default function VehiculosPage() {
   return (
     <div>
       <PageHeader
         title="Vehículos"
-        description={`${vehiculos.length} vehículos registrados · ${conDatos} con patente o marca`}
+        description="Flota registrada: patentes, kilómetros y próximos services."
         action={
           <ButtonLink href="/vehiculos/nuevo" variant="primary">
             + Nuevo vehículo
@@ -22,25 +20,49 @@ export default async function VehiculosPage() {
       />
 
       <Card>
-        {vehiculos.length === 0 ? (
-          <div className="px-5 py-12 text-center">
-            <p className="text-sm font-medium text-zinc-700">
-              Todavía no hay vehículos
-            </p>
-            <p className="mt-1 text-sm text-zinc-500">
-              Cargá tu primer vehículo para llevar el control de kilómetros y
-              services.
-            </p>
-            <div className="mt-4">
-              <ButtonLink href="/vehiculos/nuevo" variant="primary">
-                + Nuevo vehículo
-              </ButtonLink>
+        <Suspense
+          fallback={
+            <div className="animate-pulse p-5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex gap-6 border-t border-zinc-100 py-3"
+                >
+                  <div className="h-4 w-32 rounded bg-zinc-100" />
+                  <div className="h-4 w-16 rounded bg-zinc-100" />
+                  <div className="h-4 w-24 rounded bg-zinc-100" />
+                  <div className="h-4 w-28 rounded bg-zinc-100" />
+                </div>
+              ))}
             </div>
-          </div>
-        ) : (
-          <VehiculosTablaBusqueda vehiculos={vehiculos} />
-        )}
+          }
+        >
+          <TablaVehiculos />
+        </Suspense>
       </Card>
     </div>
   );
+}
+
+async function TablaVehiculos() {
+  const vehiculos = await listarVehiculos();
+  if (vehiculos.length === 0) {
+    return (
+      <div className="px-5 py-12 text-center">
+        <p className="text-sm font-medium text-zinc-700">
+          Todavía no hay vehículos
+        </p>
+        <p className="mt-1 text-sm text-zinc-500">
+          Cargá tu primer vehículo para llevar el control de kilómetros y
+          services.
+        </p>
+        <div className="mt-4">
+          <ButtonLink href="/vehiculos/nuevo" variant="primary">
+            + Nuevo vehículo
+          </ButtonLink>
+        </div>
+      </div>
+    );
+  }
+  return <VehiculosTablaBusqueda vehiculos={vehiculos} />;
 }

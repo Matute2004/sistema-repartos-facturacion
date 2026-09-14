@@ -1,4 +1,4 @@
-import { listarGastosDelMes, totalGastosDelMes } from "@/lib/data/gastos";
+import { listarGastosDelMesConTotal } from "@/lib/data/gastos";
 import {
   CATEGORIAS_GASTO,
   ETIQUETA_CATEGORIA,
@@ -43,10 +43,9 @@ export default async function GastosPage({
   const mesAnterior = sumarMeses(mesSeleccionado, -1);
   const mesSiguiente = sumarMeses(mesSeleccionado, 1);
 
-  const [gastos, total] = await Promise.all([
-    listarGastosDelMes(mesSeleccionado),
-    totalGastosDelMes(mesSeleccionado),
-  ]);
+  const { gastos, totalCentavos: total } = await listarGastosDelMesConTotal(
+    mesSeleccionado,
+  );
 
   const porCategoria = CATEGORIAS_GASTO.map((categoria) => ({
     categoria,

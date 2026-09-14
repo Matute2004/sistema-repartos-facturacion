@@ -1,3 +1,4 @@
+import { Suspense, use } from "react";
 import { listarClientesResumen } from "@/lib/data/clientes";
 import { ButtonLink } from "@/app/components/ui/form";
 import { PageHeader } from "@/app/components/ui/display";
@@ -28,23 +29,19 @@ function BannerImportacion({ params }: { params: { importado: number; sinNombre:
   );
 }
 
-export default async function ClientesPage({
+export default function ClientesPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const [clientes, params] = await Promise.all([
-    listarClientesResumen(),
-    searchParams,
-  ]);
-  const conTelefono = clientes.filter((c) => c.telefono).length;
+  const params = use(searchParams);
   const importado = params.importado ? Number(params.importado) : null;
 
   return (
     <div>
       <PageHeader
         title="Clientes"
-        description={`${clientes.length} clientes registrados · ${conTelefono} con teléfono`}
+        description="Base de clientes registrada con su deuda acumulada."
         action={
           <div className="flex flex-wrap gap-2">
             <ImportarClientes />
@@ -66,22 +63,52 @@ export default async function ClientesPage({
       )}
 
       <Card>
-        {clientes.length === 0 ? (
-          <div className="px-5 py-12 text-center">
-            <p className="text-sm font-medium text-zinc-700">Todavía no hay clientes</p>
-            <p className="mt-1 text-sm text-zinc-500">
-              Cargá tu primer cliente para empezar a armar remitos.
-            </p>
-            <div className="mt-4">
-              <ButtonLink href="/clientes/nuevo" variant="primary">
-                + Nuevo cliente
-              </ButtonLink>
+        {/* La tabla consulta la deuda de todos los clientes: streama aparte
+            para que el resto de la página aparezca de inmediato. */}
+        <Suspense
+          fallback={
+            <div className="animate-pulse p-5">
+              <div className="mb-4 h-4 w-56 rounded bg-zinc-200" />
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex gap-6 border-t border-zinc-100 py-3"
+                >
+                  <div className="h-4 w-40 rounded bg-zinc-100" />
+                  <div className="h-4 w-24 rounded bg-zinc-100" />
+                  <div className="h-4 w-32 rounded bg-zinc-100" />
+                  <div className="h-4 w-20 rounded bg-zinc-100" />
+                </div>
+              ))}
             </div>
-          </div>
-        ) : (
-          <ClientesTablaBusqueda clientes={clientes} />
-        )}
+          }
+        >
+          <TablaClientes />
+        </Suspense>
       </Card>
     </div>
   );
+}
+
+/** Carga los clientes con su deuda y arma la tabla con búsqueda y orden. */
+async function TablaClientes() {
+  const clientes = await listarClientesResumen();
+  if (clientes.length === 0) {
+    return (
+      <div className="px-5 py-12 text-center">
+        <p className="text-sm font-medium text-zinc-700">
+          Todavía no hay clientes
+        </p>
+        <p className="mt-1 text-sm text-zinc-500">
+          Cargá tu primer cliente para empezar a armar remitos.
+        </p>
+        <div className="mt-4">
+          <ButtonLink href="/clientes/nuevo" variant="primary">
+            + Nuevo cliente
+          </ButtonLink>
+        </div>
+      </div>
+    );
+  }
+  return <ClientesTablaBusqueda clientes={clientes} />;
 }

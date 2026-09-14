@@ -60,24 +60,40 @@ export async function listarClientes(): Promise<Cliente[]> {
  *  items de los remitos asignados + mercadería directa del reparto. */
 export async function listarClientesResumen(): Promise<ClienteResumen[]> {
   const db = await getDb();
+  // Deuda por cliente calculada con JOINs sobre agregaciones (una sola pasada
+  // por tabla), en vez de subconsultas correlacionadas por cliente (que se
+  // vuelven O(n*m) con muchos clientes). La deuda suma los repartos sin cobrar
+  // y no cancelados: items de los remitos asignados + mercadería directa.
   const resultado = await db.execute(
     `SELECT c.id, c.numero, c.nombre, c.cuit, c.direccion, c.localidad, c.telefono, c.email,
-            COALESCE((
-              SELECT SUM(
-                (SELECT COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0)
-                 FROM remitos rt
-                 JOIN remito_items ri ON ri.remito_id = rt.id
-                 WHERE rt.reparto_id = rp.id)
-                + (SELECT COALESCE(SUM(mi.cantidad * mi.precio_unitario_centavos), 0)
-                   FROM reparto_items mi
-                   WHERE mi.reparto_id = rp.id)
-              )
-              FROM repartos rp
-              WHERE rp.cliente_id = c.id
-                AND rp.cobrado = 0
-                AND rp.estado <> 'cancelado'
-            ), 0) AS deuda_centavos
+            COALESCE(d_rem.deuda_centavos, 0) + COALESCE(d_rep.deuda_centavos, 0) AS deuda_centavos
      FROM clientes c
+     LEFT JOIN (
+       SELECT rp.cliente_id,
+              COALESCE(SUM(v.total_remitos_centavos), 0) AS deuda_centavos
+       FROM repartos rp
+       LEFT JOIN (
+         SELECT rt.reparto_id,
+                SUM(ri.cantidad * ri.precio_unitario_centavos) AS total_remitos_centavos
+         FROM remitos rt
+         JOIN remito_items ri ON ri.remito_id = rt.id
+         GROUP BY rt.reparto_id
+       ) v ON v.reparto_id = rp.id
+       WHERE rp.cliente_id IS NOT NULL
+         AND rp.cobrado = 0
+         AND rp.estado <> 'cancelado'
+       GROUP BY rp.cliente_id
+     ) d_rem ON d_rem.cliente_id = c.id
+     LEFT JOIN (
+       SELECT rp2.cliente_id,
+              COALESCE(SUM(mi.cantidad * mi.precio_unitario_centavos), 0) AS deuda_centavos
+       FROM repartos rp2
+       JOIN reparto_items mi ON mi.reparto_id = rp2.id
+       WHERE rp2.cliente_id IS NOT NULL
+         AND rp2.cobrado = 0
+         AND rp2.estado <> 'cancelado'
+       GROUP BY rp2.cliente_id
+     ) d_rep ON d_rep.cliente_id = c.id
      ORDER BY COALESCE(c.numero, 999999) ASC, c.nombre COLLATE NOCASE ASC`,
   );
   return resultado.rows.map((fila) => {

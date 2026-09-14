@@ -105,6 +105,14 @@ CREATE INDEX IF NOT EXISTS idx_remito_items_remito ON remito_items(remito_id);
 CREATE INDEX IF NOT EXISTS idx_gastos_fecha        ON gastos(fecha);
 CREATE INDEX IF NOT EXISTS idx_gastos_categoria    ON gastos(categoria);
 
+-- Índices compuestos para consultas de deuda y búsquedas de estado frecuentes.
+CREATE INDEX IF NOT EXISTS idx_repartos_cliente_cobrado_estado
+  ON repartos(cliente_id, cobrado, estado);
+CREATE INDEX IF NOT EXISTS idx_remitos_estado_reparto
+  ON remitos(estado, reparto_id);
+CREATE INDEX IF NOT EXISTS idx_remitos_fecha_estado
+  ON remitos(fecha, estado);
+
 -- ----------------------------------------------------------------------------
 -- Vehículos (flota propia)
 -- ----------------------------------------------------------------------------

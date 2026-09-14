@@ -16,6 +16,7 @@ import {
   crearGasto,
   listarGastos,
   listarGastosDelMes,
+  listarGastosDelMesConTotal,
   totalGastos,
   totalGastosDelMes,
 } from "@/lib/data/gastos";
@@ -437,6 +438,17 @@ describe("flujo gastos", () => {
     expect(await totalGastosDelMes("2026-09")).toBe(4000);
     expect(await totalGastosDelMes("2026-08")).toBe(2000);
     expect(await totalGastosDelMes("2026-07")).toBe(0);
+
+    // La consulta unificada (lista + total en una ventana) debe coincidir con
+    // las funciones separadas.
+    const septConTotal = await listarGastosDelMesConTotal("2026-09");
+    expect(septConTotal.totalCentavos).toBe(4000);
+    expect(septConTotal.gastos).toHaveLength(2);
+    expect(septConTotal.gastos[0].descripcion).toBe("Septiembre 1");
+
+    const vacioConTotal = await listarGastosDelMesConTotal("2026-07");
+    expect(vacioConTotal.totalCentavos).toBe(0);
+    expect(vacioConTotal.gastos).toHaveLength(0);
 
     const septiembre = await listarGastosDelMes("2026-09");
     expect(septiembre).toHaveLength(2);

@@ -56,6 +56,19 @@ export async function migrate(): Promise<void> {
     "CREATE INDEX IF NOT EXISTS idx_repartos_cliente ON repartos(cliente_id)",
   );
 
+  // Índices compuestos para acelerar la deuda de clientes (filtro cliente +
+  // cobrado + estado) y los remitos pendientes sin asignar. Idempotentes y
+  // seguros de correr varias veces.
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_repartos_cliente_cobrado_estado ON repartos(cliente_id, cobrado, estado)",
+  );
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_remitos_estado_reparto ON remitos(estado, reparto_id)",
+  );
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_remitos_fecha_estado ON remitos(fecha, estado)",
+  );
+
   // La mercadería directa pasó de ser una sola línea en `repartos` a varias
   // líneas en `reparto_items`. Si la tabla vieja todavía tiene las columnas
   // (de migraciones anteriores), se vuelcan a la tabla nueva una sola vez.

@@ -61,15 +61,11 @@ const SQL_SELECCION_REPARTO = `
  *  total (remitos asignados + mercadería directa) y los remitos asociados
  *  (id + número) para mostrarlos en la columna "Remitos". */
 export async function listarRepartos(): Promise<Reparto[]> {
-  const db = await getDb();
-  const resultado = await db.execute(
+  return consultarRepartosCompletos(
     `${SQL_SELECCION_REPARTO}
      GROUP BY rp.id
      ORDER BY rp.fecha DESC, rp.id DESC`,
   );
-  const repartos = resultado.rows.map((fila) => mapearReparto(fila as Fila));
-  await completarRepartos(db, repartos);
-  return repartos;
 }
 
 /** Repartos de un cliente para su ficha, con la misma forma que el listado
@@ -77,32 +73,75 @@ export async function listarRepartos(): Promise<Reparto[]> {
 export async function listarRepartosDelCliente(
   clienteId: number,
 ): Promise<Reparto[]> {
-  const db = await getDb();
-  const resultado = await db.execute(
+  return consultarRepartosCompletos(
     `${SQL_SELECCION_REPARTO}
      WHERE rp.cliente_id = ?
      GROUP BY rp.id
      ORDER BY rp.fecha DESC, rp.id DESC`,
     [clienteId],
   );
+}
+
+/**
+ * Ejecuta la consulta principal de repartos + los remitos y items de
+ * mercadería en UN solo batch (un único round-trip HTTP a Turso).
+ */
+async function consultarRepartosCompletos(
+  sqlPrincipal: string,
+  argsPrincipal?: InArgs,
+): Promise<Reparto[]> {
+  const db = await getDb();
+  const resultado = await db.execute(sqlPrincipal, argsPrincipal ?? []);
   const repartos = resultado.rows.map((fila) => mapearReparto(fila as Fila));
   await completarRepartos(db, repartos);
   return repartos;
 }
 
-/** Asocia los remitos y los items de mercadería a repartos ya mapeados. */
+/** Asocia los remitos y los items de mercadería a repartos ya mapeados.
+ *  Filtra por los IDs de los repartos pedidos (en vez de barrer todas las
+ *  tablas) y ejecuta ambas lecturas en un solo batch HTTP a Turso. */
+const LIMITE_PLACEHOLDERS_BATCH = 900; // < SQLITE_MAX_VARIABLE_NUMBER (32766)
+
 async function completarRepartos(
   db: Awaited<ReturnType<typeof getDb>>,
   repartos: Reparto[],
 ): Promise<void> {
   if (repartos.length === 0) return;
 
-  const resRemitos = await db.execute(
-    `SELECT reparto_id, id, numero
-     FROM remitos
-     WHERE reparto_id IS NOT NULL
-     ORDER BY numero ASC`,
-  );
+  const ids = repartos.map((r) => r.id);
+
+  // Con pocos repartos conviene filtrar por IN (menos datos del server al
+  // cliente). Con listas enormes, el payload de placeholders crece: caemos al
+  // barrido completo (que ya cubría todos los ids de todas formas).
+  const usarFiltro = ids.length <= LIMITE_PLACEHOLDERS_BATCH;
+
+  const [resRemitos, resItems] = usarFiltro
+    ? await db.batch([
+        {
+          sql: `SELECT reparto_id, id, numero
+                FROM remitos
+                WHERE reparto_id IN (${ids.map(() => "?").join(",")})
+                ORDER BY numero ASC`,
+          args: ids,
+        },
+        {
+          sql: `SELECT id, reparto_id, descripcion, cantidad, precio_unitario_centavos
+                FROM reparto_items
+                WHERE reparto_id IN (${ids.map(() => "?").join(",")})
+                ORDER BY id ASC`,
+          args: ids,
+        },
+      ])
+    : await db.batch([
+        `SELECT reparto_id, id, numero
+         FROM remitos
+         WHERE reparto_id IS NOT NULL
+         ORDER BY numero ASC`,
+        `SELECT id, reparto_id, descripcion, cantidad, precio_unitario_centavos
+         FROM reparto_items
+         ORDER BY id ASC`,
+      ]);
+
   const remitosPorReparto = new Map<number, RepartoRemitoLigero[]>();
   for (const fila of resRemitos.rows) {
     const f = fila as Fila;
@@ -112,11 +151,6 @@ async function completarRepartos(
     remitosPorReparto.set(repartoId, lista);
   }
 
-  const resItems = await db.execute(
-    `SELECT id, reparto_id, descripcion, cantidad, precio_unitario_centavos
-     FROM reparto_items
-     ORDER BY id ASC`,
-  );
   const itemsPorReparto = new Map<number, RepartoItem[]>();
   for (const fila of resItems.rows) {
     const f = fila as Fila;
@@ -229,15 +263,46 @@ export async function actualizarEstadoReparto(
  *  remitos asignados y de su mercadería directa (suma de items). */
 export async function obtenerReparto(id: number): Promise<Reparto | null> {
   const db = await getDb();
-  const resultado = await db.execute(
-    `${SQL_SELECCION_REPARTO}
-     WHERE rp.id = ?
-     GROUP BY rp.id`,
-    [id],
-  );
-  if (resultado.rows.length === 0) return null;
-  const reparto = mapearReparto(resultado.rows[0] as Fila);
-  await completarRepartos(db, [reparto]);
+  const [resPrincipal, resRemitos, resItems] = await db.batch([
+    {
+      sql: `${SQL_SELECCION_REPARTO}
+            WHERE rp.id = ?
+            GROUP BY rp.id`,
+      args: [id],
+    },
+    {
+      sql: `SELECT reparto_id, id, numero
+            FROM remitos
+            WHERE reparto_id = ?
+            ORDER BY numero ASC`,
+      args: [id],
+    },
+    {
+      sql: `SELECT id, reparto_id, descripcion, cantidad, precio_unitario_centavos
+            FROM reparto_items
+            WHERE reparto_id = ?
+            ORDER BY id ASC`,
+      args: [id],
+    },
+  ]);
+
+  if (resPrincipal.rows.length === 0) return null;
+  const reparto = mapearReparto(resPrincipal.rows[0] as Fila);
+
+  for (const fila of resRemitos.rows) {
+    const f = fila as Fila;
+    reparto.remitos.push({ id: Number(f.id), numero: Number(f.numero) });
+  }
+  for (const fila of resItems.rows) {
+    const f = fila as Fila;
+    reparto.items.push({
+      id: Number(f.id),
+      repartoId: id,
+      descripcion: String(f.descripcion),
+      cantidad: Number(f.cantidad),
+      precioUnitarioCentavos: Number(f.precio_unitario_centavos),
+    });
+  }
   return reparto;
 }
 

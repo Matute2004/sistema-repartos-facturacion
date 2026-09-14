@@ -19,39 +19,35 @@ export async function getMetricasDashboard(): Promise<MetricasDashboard> {
   const hoy = fechaHoyLocal();
   const mes = hoy.slice(0, 7); // YYYY-MM
 
-  const [
-    clientes,
-    vehiculos,
-    gastosMes,
-    repartosHoy,
-    remitosPendientes,
-    remitosPorAsignar,
-  ] = await Promise.all([
-      db.execute("SELECT COUNT(*) AS total FROM clientes"),
-      db.execute("SELECT COUNT(*) AS total FROM vehiculos"),
-      db.execute(
-        "SELECT COALESCE(SUM(monto_centavos), 0) AS total FROM gastos WHERE substr(fecha, 1, 7) = ?",
-        [mes],
-      ),
-      db.execute("SELECT COUNT(*) AS total FROM repartos WHERE fecha = ?", [hoy]),
-      db.execute(
-        "SELECT COUNT(*) AS total FROM remitos WHERE fecha = ? AND estado = 'pendiente'",
-        [hoy],
-      ),
-      db.execute(
-        "SELECT COUNT(*) AS total FROM remitos WHERE estado = 'pendiente' AND reparto_id IS NULL",
-      ),
-    ]);
+  // Batch en un solo request HTTP a Turso (en vez de 6 round-trips).
+  // Todas son lecturas independientes; batch las ejecuta atómicamente.
+  const resultados = await db.batch([
+    "SELECT COUNT(*) AS total FROM clientes",
+    "SELECT COUNT(*) AS total FROM vehiculos",
+    {
+      sql: "SELECT COALESCE(SUM(monto_centavos), 0) AS total FROM gastos WHERE substr(fecha, 1, 7) = ?",
+      args: [mes],
+    },
+    {
+      sql: "SELECT COUNT(*) AS total FROM repartos WHERE fecha = ?",
+      args: [hoy],
+    },
+    {
+      sql: "SELECT COUNT(*) AS total FROM remitos WHERE fecha = ? AND estado = 'pendiente'",
+      args: [hoy],
+    },
+    "SELECT COUNT(*) AS total FROM remitos WHERE estado = 'pendiente' AND reparto_id IS NULL",
+  ]);
 
   const numero = (fila: Record<string, unknown>) =>
     Number((fila as Record<string, unknown>).total);
 
   return {
-    clientes: numero(clientes.rows[0]),
-    vehiculos: numero(vehiculos.rows[0]),
-    gastosMesCentavos: numero(gastosMes.rows[0]),
-    repartosHoy: numero(repartosHoy.rows[0]),
-    remitosHoyPendientes: numero(remitosPendientes.rows[0]),
-    remitosPorAsignar: numero(remitosPorAsignar.rows[0]),
+    clientes: numero(resultados[0].rows[0]),
+    vehiculos: numero(resultados[1].rows[0]),
+    gastosMesCentavos: numero(resultados[2].rows[0]),
+    repartosHoy: numero(resultados[3].rows[0]),
+    remitosHoyPendientes: numero(resultados[4].rows[0]),
+    remitosPorAsignar: numero(resultados[5].rows[0]),
   };
 }
