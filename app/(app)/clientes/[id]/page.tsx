@@ -34,10 +34,9 @@ export default async function DetalleClientePage({
   // Repartos del cliente: la misma fila completa que el listado general,
   // filtrada por cliente, más el total que adeuda.
   const repartos = await listarRepartosDelCliente(cliente.id);
-  const totalAdeudadoCentavos = repartos.reduce(
-    (total, reparto) => total + reparto.valorCentavos,
-    0,
-  );
+  const totalAdeudadoCentavos = repartos
+    .filter((reparto) => !reparto.cobrado && reparto.estado !== "cancelado")
+    .reduce((total, reparto) => total + reparto.valorCentavos, 0);
 
   const filas: Array<{ label: string; valor: ReactNode }> = [
     {

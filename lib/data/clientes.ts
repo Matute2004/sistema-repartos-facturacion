@@ -32,6 +32,8 @@ export interface ClienteResumen {
   localidad: string | null;
   telefono: string | null;
   email: string | null;
+  /** Total pendiente de pago (repartos sin cobrar y no cancelados). */
+  deudaCentavos: number;
 }
 
 /** Vista mínima para `<select>` de clientes (solo id + nombre). */
@@ -53,13 +55,30 @@ export async function listarClientes(): Promise<Cliente[]> {
 }
 
 /** Lista clientes en versión liviana (sin notas ni fechas) para la tabla.
- *  Reduce la cantidad de PII que viaja al navegador en el payload RSC. */
+ *  Reduce la cantidad de PII que viaja al navegador en el payload RSC.
+ *  La deuda suma el valor de los repartos sin cobrar y no cancelados:
+ *  items de los remitos asignados + mercadería directa del reparto. */
 export async function listarClientesResumen(): Promise<ClienteResumen[]> {
   const db = await getDb();
   const resultado = await db.execute(
-    `SELECT id, numero, nombre, cuit, direccion, localidad, telefono, email
-     FROM clientes
-     ORDER BY COALESCE(numero, 999999) ASC, nombre COLLATE NOCASE ASC`,
+    `SELECT c.id, c.numero, c.nombre, c.cuit, c.direccion, c.localidad, c.telefono, c.email,
+            COALESCE((
+              SELECT SUM(
+                (SELECT COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0)
+                 FROM remitos rt
+                 JOIN remito_items ri ON ri.remito_id = rt.id
+                 WHERE rt.reparto_id = rp.id)
+                + (SELECT COALESCE(SUM(mi.cantidad * mi.precio_unitario_centavos), 0)
+                   FROM reparto_items mi
+                   WHERE mi.reparto_id = rp.id)
+              )
+              FROM repartos rp
+              WHERE rp.cliente_id = c.id
+                AND rp.cobrado = 0
+                AND rp.estado <> 'cancelado'
+            ), 0) AS deuda_centavos
+     FROM clientes c
+     ORDER BY COALESCE(c.numero, 999999) ASC, c.nombre COLLATE NOCASE ASC`,
   );
   return resultado.rows.map((fila) => {
     const f = fila as FilaCliente;
@@ -72,6 +91,7 @@ export async function listarClientesResumen(): Promise<ClienteResumen[]> {
       localidad: f.localidad ? String(f.localidad) : null,
       telefono: f.telefono ? String(f.telefono) : null,
       email: f.email ? String(f.email) : null,
+      deudaCentavos: Number(f.deuda_centavos ?? 0),
     };
   });
 }

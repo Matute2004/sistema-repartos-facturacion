@@ -334,6 +334,65 @@ describe("flujo repartos y asignación de remitos", () => {
     expect(porCobrar?.formaPago).toBeNull();
     expect(porCobrar?.cobrado).toBe(false);
   });
+
+  it("calcula la deuda por cliente (repartos sin cobrar y no cancelados)", async () => {
+    const clienteA = await crearClienteBasico(11);
+    const clienteB = await crearClienteBasico(12);
+
+    // A debe: 2 repartos sin cobrar (500 + 300 = 800).
+    await crearReparto({
+      fecha: "2026-09-14",
+      clienteId: clienteA,
+      itemsMercaderia: [
+        { descripcion: "Caja", cantidad: 1, precioUnitarioCentavos: 500 },
+      ],
+    });
+    await crearReparto({
+      fecha: "2026-09-15",
+      clienteId: clienteA,
+      itemsMercaderia: [
+        { descripcion: "Bolsa", cantidad: 1, precioUnitarioCentavos: 300 },
+      ],
+    });
+
+    // A tiene un reparto cobrado y otro cancelado que no suman a la deuda.
+    const cobrado = await crearReparto({
+      fecha: "2026-09-16",
+      clienteId: clienteA,
+      itemsMercaderia: [
+        { descripcion: "Caja", cantidad: 1, precioUnitarioCentavos: 900 },
+      ],
+      formaPago: "contado",
+    });
+    await actualizarFormaPagoReparto(cobrado, "contado");
+    const cancelado = await crearReparto({
+      fecha: "2026-09-17",
+      clienteId: clienteA,
+      itemsMercaderia: [
+        { descripcion: "Paquete", cantidad: 1, precioUnitarioCentavos: 700 },
+      ],
+    });
+    await actualizarEstadoReparto(cancelado, "cancelado");
+
+    // B debe $100 (sin cobrar).
+    await crearReparto({
+      fecha: "2026-09-14",
+      clienteId: clienteB,
+      itemsMercaderia: [
+        { descripcion: "Sobre", cantidad: 1, precioUnitarioCentavos: 100 },
+      ],
+    });
+    // Cliente sin repartos no figura con deuda.
+    await crearClienteBasico(13);
+
+    const resumen = await listarClientesResumen();
+    const deudaA = resumen.find((c) => c.id === clienteA)?.deudaCentavos;
+    const deudaB = resumen.find((c) => c.id === clienteB)?.deudaCentavos;
+    const deudaSinRepartos = resumen.find((c) => c.numero === 13)?.deudaCentavos;
+    expect(deudaA).toBe(800);
+    expect(deudaB).toBe(100);
+    expect(deudaSinRepartos).toBe(0);
+  });
 });
 
 describe("flujo gastos", () => {

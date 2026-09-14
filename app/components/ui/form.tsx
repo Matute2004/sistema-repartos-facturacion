@@ -2,7 +2,10 @@
  * Componentes de formulario reutilizables.
  * Son componentes de presentación: no manejan estado ni datos.
  */
-import type { ReactNode } from "react";
+import type {
+  ComponentProps,
+  ReactNode,
+} from "react";
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
@@ -125,24 +128,28 @@ export function Button({
 // ----------------------------------------------------------------------------
 // Link con estilo de botón
 // ----------------------------------------------------------------------------
+interface ButtonLinkProps extends Omit<ComponentProps<"a">, "href"> {
+  href: string;
+  variant?: ButtonVariant;
+  className?: string;
+  disabled?: boolean;
+  children: ReactNode;
+}
+
 export function ButtonLink({
   href,
   variant = "secondary",
   className = "",
   disabled = false,
   children,
-}: {
-  href: string;
-  variant?: ButtonVariant;
-  className?: string;
-  disabled?: boolean;
-  children: ReactNode;
-}) {
+  ...rest
+}: ButtonLinkProps) {
   return (
     <Link
       href={href}
       aria-disabled={disabled}
       className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${buttonVariants[variant]} ${disabled ? "pointer-events-none opacity-60" : ""} ${className}`}
+      {...rest}
     >
       {children}
     </Link>
