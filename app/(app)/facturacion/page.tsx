@@ -1,8 +1,4 @@
-import {
-  Card,
-  CardHeader,
-  PageHeader,
-} from "@/app/components/ui/display";
+import { Card, PageHeader } from "@/app/components/ui/display";
 
 export const metadata = { title: "Facturación" };
 
@@ -53,30 +49,6 @@ export default function FacturacionPage() {
           </a>
         ))}
       </div>
-
-      <Card className="mt-6 max-w-3xl">
-        <CardHeader
-          title="Siguiente etapa"
-          description="Plan para la integración con la facturación"
-        />
-        <div className="space-y-3 px-5 py-4 text-sm text-zinc-600">
-          <p>
-            Este módulo va a dejar de ser solo un atajo: se va a poder partir
-            desde un remito para abrir el sistema de comprobantes de AFIP con
-            los datos del cliente precargados.
-          </p>
-          <ul className="list-disc space-y-1 pl-5">
-            <li>
-              Atajo por remito: botón <em>“Facturar”</em> en cada remito con
-              todos los datos listos para copiar al sistema de AFIP.
-            </li>
-            <li>
-              Si el comercio lo requiere más adelante: conexión vía Web Services
-              (WSAA/wcf) para emisión desde acá — requiere credenciales e IRC.
-            </li>
-          </ul>
-        </div>
-      </Card>
     </div>
   );
 }
