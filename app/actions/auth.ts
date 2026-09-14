@@ -11,9 +11,31 @@ import {
   NOMBRE_COOKIE_SESION,
 } from "@/lib/sesion";
 import { hashearPassword, verificarPassword } from "@/lib/passwords";
+import {
+  limpiarIntentosDeLogin,
+  puedeIntentarLogin,
+  registrarIntentoFallido,
+} from "@/lib/seguridad";
 
 function texto(formData: FormData, campo: string): string {
   return String(formData.get(campo) ?? "").trim();
+}
+
+/**
+ * IP del cliente que inicia sesión (para el control de fuerza bruta).
+ * En Vercel viene de `x-forwarded-for` (puede traer varias, tomamos la
+ * primera) o `x-real-ip`.
+ */
+async function ipDeRequerimiento(): Promise<string> {
+  try {
+    const encabezados = await headers();
+    const fwd = encabezados.get("x-forwarded-for");
+    if (fwd) return fwd.split(",")[0].trim();
+    const real = encabezados.get("x-real-ip");
+    return real?.trim() ?? "desconocida";
+  } catch {
+    return "desconocida";
+  }
 }
 
 /**
@@ -43,6 +65,20 @@ export async function iniciarSesionAction(
     return { error: "Ingresá tu usuario y contraseña." };
   }
 
+  // Control de fuerza bruta: bloquear usuario e IP que superaron el límite
+  // de intentos fallidos dentro de la ventana.
+  const ip = await ipDeRequerimiento();
+  const [permiteUsuario, permiteIp] = await Promise.all([
+    puedeIntentarLogin("usuario", nombre),
+    puedeIntentarLogin("ip", ip),
+  ]);
+  if (!permiteUsuario || !permiteIp) {
+    return {
+      error:
+        "Demasiados intentos fallidos. Esperá 10 minutos y volvé a intentar.",
+    };
+  }
+
   let usuario: Usuario | null;
   try {
     usuario = await obtenerUsuarioPorNombre(nombre);
@@ -59,8 +95,14 @@ export async function iniciarSesionAction(
   }
 
   if (!usuario || !verificarPassword(password, usuario.passwordHash)) {
+    await registrarIntentoFallido("usuario", nombre);
+    await registrarIntentoFallido("ip", ip);
     return { error: "Usuario o contraseña incorrectos." };
   }
+
+  // Login correcto: liberar los intentos acumulados de ese usuario e IP.
+  await limpiarIntentosDeLogin("usuario", nombre);
+  await limpiarIntentosDeLogin("ip", ip);
 
   const cookieStore = await cookies();
   try {
@@ -90,6 +132,15 @@ export async function iniciarSesionAction(
 export async function cerrarSesionAction(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(NOMBRE_COOKIE_SESION);
+  // Refuerzo adicional: si por algún motivo el delete no se propagó en algún
+  // cliente, seteamos la cookie con expiración inmediata.
+  cookieStore.set(NOMBRE_COOKIE_SESION, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 0,
+  });
   redirect("/login");
 }
 

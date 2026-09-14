@@ -217,15 +217,46 @@ export interface RemitoCompleto {
 export async function obtenerRemitoCompleto(
   id: number,
 ): Promise<RemitoCompleto | null> {
-  const remito = await obtenerRemito(id);
-  if (!remito) return null;
-
   const db = await getDb();
-  const resCliente = await db.execute("SELECT * FROM clientes WHERE id = ?", [
-    remito.clienteId,
-  ]);
-  if (resCliente.rows.length === 0) return null;
 
+  // 1) Remito + total + datos del cliente en una sola consulta (JOIN). Se
+  //    listan columnas explícitas para no traer campos innecesarios.
+  const resultado = await db.execute(
+    `SELECT r.id, r.numero, r.cliente_id, r.reparto_id, r.fecha, r.estado,
+            r.observaciones, r.creado_en,
+            c.numero AS cliente_numero, c.nombre AS cliente_nombre,
+            c.cuit AS cliente_cuit, c.direccion AS cliente_direccion,
+            c.localidad AS cliente_localidad, c.telefono AS cliente_telefono,
+            c.email AS cliente_email, c.notas AS cliente_notas,
+            c.creado_en AS cliente_creado_en,
+            c.actualizado_en AS cliente_actualizado_en,
+            COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0) AS valor_centavos
+     FROM remitos r
+     JOIN clientes c ON c.id = r.cliente_id
+     LEFT JOIN remito_items ri ON ri.remito_id = r.id
+     WHERE r.id = ?
+     GROUP BY r.id`,
+    [id],
+  );
+  if (resultado.rows.length === 0) return null;
+
+  const fila = resultado.rows[0] as Fila;
+  const remito = mapearRemito(fila);
+  const cliente: Cliente = {
+    id: Number(fila.cliente_id),
+    numero: fila.cliente_numero != null ? Number(fila.cliente_numero) : null,
+    nombre: String(fila.cliente_nombre),
+    cuit: fila.cliente_cuit ? String(fila.cliente_cuit) : null,
+    direccion: fila.cliente_direccion ? String(fila.cliente_direccion) : null,
+    localidad: fila.cliente_localidad ? String(fila.cliente_localidad) : null,
+    telefono: fila.cliente_telefono ? String(fila.cliente_telefono) : null,
+    email: fila.cliente_email ? String(fila.cliente_email) : null,
+    notas: fila.cliente_notas ? String(fila.cliente_notas) : null,
+    creadoEn: String(fila.cliente_creado_en),
+    actualizadoEn: String(fila.cliente_actualizado_en),
+  };
+
+  // 2) Items del remito.
   const resItems = await db.execute(
     `SELECT id, remito_id, descripcion, cantidad, precio_unitario_centavos
      FROM remito_items
@@ -234,23 +265,8 @@ export async function obtenerRemitoCompleto(
     [id],
   );
 
-  const clienteFila = resCliente.rows[0] as Fila;
-  const cliente: Cliente = {
-    id: Number(clienteFila.id),
-    numero: clienteFila.numero != null ? Number(clienteFila.numero) : null,
-    nombre: String(clienteFila.nombre),
-    cuit: clienteFila.cuit ? String(clienteFila.cuit) : null,
-    direccion: clienteFila.direccion ? String(clienteFila.direccion) : null,
-    localidad: clienteFila.localidad ? String(clienteFila.localidad) : null,
-    telefono: clienteFila.telefono ? String(clienteFila.telefono) : null,
-    email: clienteFila.email ? String(clienteFila.email) : null,
-    notas: clienteFila.notas ? String(clienteFila.notas) : null,
-    creadoEn: String(clienteFila.creado_en),
-    actualizadoEn: String(clienteFila.actualizado_en),
-  };
-
-  const items: RemitoItem[] = resItems.rows.map((fila) => {
-    const f = fila as Fila;
+  const items: RemitoItem[] = resItems.rows.map((filaItem) => {
+    const f = filaItem as Fila;
     return {
       id: Number(f.id),
       remitoId: Number(f.remito_id),

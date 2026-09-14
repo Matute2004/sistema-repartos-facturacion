@@ -4,8 +4,11 @@ import { migrate } from "@/lib/migrate";
 import {
   actualizarCliente,
   crearCliente,
+  crearClientesEnLote,
   eliminarCliente,
   listarClientes,
+  listarClientesParaSeleccion,
+  listarClientesResumen,
   obtenerCliente,
 } from "@/lib/data/clientes";
 import {
@@ -80,6 +83,30 @@ describe("flujo clientes", () => {
       items: [{ descripcion: "a", cantidad: 1, precioUnitarioCentavos: 100 }],
     });
     await expect(eliminarCliente(clienteId)).rejects.toThrow();
+  });
+
+  it("inserta clientes en lote y las vistas livianas no exponen notas", async () => {
+    const resultado = await crearClientesEnLote([
+      { numero: 10, nombre: "Cliente Diez", notas: "Nota interna secreta" },
+      { numero: 11, nombre: "Cliente Once" },
+    ]);
+    expect(resultado.importados).toBe(2);
+    expect(resultado.errores).toBe(0);
+
+    // La vista resumen (tabla) no incluye notas ni fechas.
+    const resumen = await listarClientesResumen();
+    expect(resumen).toHaveLength(2);
+    expect(resumen[0]).not.toHaveProperty("notas");
+    expect(resumen[0]).not.toHaveProperty("creadoEn");
+
+    // La vista de selección solo trae id y nombre.
+    const seleccion = await listarClientesParaSeleccion();
+    expect(seleccion).toHaveLength(2);
+    expect(Object.keys(seleccion[0]).sort()).toEqual(["id", "nombre"]);
+
+    // El detalle sí conserva las notas.
+    const detalle = await obtenerCliente(resumen[0].id);
+    expect(detalle?.notas).toBe("Nota interna secreta");
   });
 });
 

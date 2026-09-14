@@ -15,10 +15,18 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[health] error de base de datos:", error);
+    // En producción no se exponen detalles internos del error (pueden revelar
+    // infraestructura). Solo se indica que la conexión falló.
+    const mensaje =
+      process.env.NODE_ENV === "production"
+        ? "No se pudo conectar con la base de datos."
+        : error instanceof Error
+          ? error.message
+          : String(error);
     return Response.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: mensaje,
       },
       { status: 500 },
     );

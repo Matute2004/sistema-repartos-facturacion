@@ -4,7 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { crearRemitoAction } from "@/app/actions/remitos";
 import { estadoInicial } from "@/app/actions/estado";
 import { fechaHoyLocal, formatPesos, pesosACentavos } from "@/lib/types";
-import type { Cliente } from "@/lib/types";
+import type { ClienteSeleccion } from "@/lib/data/clientes";
 import {
   Button,
   ButtonLink,
@@ -28,7 +28,7 @@ export function RemitoForm({
   clientes,
   numeroProximo,
 }: {
-  clientes: Cliente[];
+  clientes: ClienteSeleccion[];
   numeroProximo: number;
 }) {
   const [estado, formAction, pending] = useActionState(

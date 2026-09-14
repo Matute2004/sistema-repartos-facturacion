@@ -2,13 +2,18 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { Cliente } from "@/lib/types";
+import type { ClienteResumen } from "@/lib/data/clientes";
 import { Badge, Table, Td, Th } from "@/app/components/ui/display";
 import { Input } from "@/app/components/ui/form";
 
 /** Tabla de clientes con buscador arriba. Filtra por número, nombre,
- *  CUIT, dirección, localidad, teléfono o email. */
-export function ClientesTablaBusqueda({ clientes }: { clientes: Cliente[] }) {
+ *  CUIT, dirección, localidad, teléfono o email. Recibe la vista liviana
+ *  (sin notas internas ni fechas) para no exponer PII innecesaria. */
+export function ClientesTablaBusqueda({
+  clientes,
+}: {
+  clientes: ClienteResumen[];
+}) {
   const [consulta, setConsulta] = useState("");
 
   const filtrados = useMemo(() => {
@@ -23,7 +28,6 @@ export function ClientesTablaBusqueda({ clientes }: { clientes: Cliente[] }) {
         cliente.localidad,
         cliente.telefono,
         cliente.email,
-        cliente.notas,
       ].some((valor) => valor != null && valor.toLowerCase().includes(termino)),
     );
   }, [clientes, consulta]);

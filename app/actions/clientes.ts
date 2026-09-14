@@ -7,8 +7,14 @@ import { exigirAdmin } from "@/lib/auth";
 import {
   actualizarCliente,
   crearCliente,
+  crearClientesEnLote,
   eliminarCliente as eliminarClienteDb,
 } from "@/lib/data/clientes";
+import {
+  LIMITE_FILAS_IMPORTACION,
+  normalizarFilaImportacion,
+  type FilaClienteImportada,
+} from "@/lib/importacion";
 
 function texto(formData: FormData, campo: string): string {
   return String(formData.get(campo) ?? "").trim();
@@ -147,11 +153,6 @@ export async function eliminarClienteAction(
 // Importación masiva de clientes desde planilla Excel/CSV
 // ----------------------------------------------------------------------------
 
-function campoFila(fila: Record<string, unknown>, clave: string): string {
-  const valor = fila[clave];
-  return valor == null ? "" : String(valor).trim();
-}
-
 /**
  * Importa clientes en lote. Recibe por FormData un JSON con un array de filas
  * { numero?, nombre, cuit?, direccion?, localidad?, telefono?, email?, notas? }
@@ -181,38 +182,38 @@ export async function importarClientesAction(
   if (filas.length === 0) {
     return { error: "El archivo no tiene filas para importar.", resumen: null };
   }
+  if (filas.length > LIMITE_FILAS_IMPORTACION) {
+    return {
+      error: `El archivo tiene ${filas.length} filas. El máximo permitido por importación es ${LIMITE_FILAS_IMPORTACION}.`,
+      resumen: null,
+    };
+  }
+
+  // Validar y normalizar todas las filas ANTES de tocar la base. Así un JSON
+  // con campos gigantes o malformados no llega a insertarse.
+  const filasValidas: FilaClienteImportada[] = [];
+  for (const bruta of filas) {
+    const fila = normalizarFilaImportacion(bruta);
+    if (fila) filasValidas.push(fila);
+  }
+
+  const sinNombre = filas.length - filasValidas.length;
+  if (filasValidas.length === 0) {
+    return { error: "Ninguna fila tiene nombre para importar.", resumen: null };
+  }
 
   let importados = 0;
-  let sinNombre = 0;
   let errores = 0;
-
-  for (const bruta of filas) {
-    const fila = (bruta ?? {}) as Record<string, unknown>;
-    const nombre = campoFila(fila, "nombre");
-    if (!nombre) {
-      sinNombre++;
-      continue;
-    }
-
-    const numeroTexto = campoFila(fila, "numero").replace(/\D/g, "");
-    const numero = numeroTexto ? Number(numeroTexto) : null;
-
-    try {
-      await crearCliente({
-        numero: numero && Number.isInteger(numero) && numero > 0 ? numero : null,
-        nombre,
-        cuit: campoFila(fila, "cuit") || undefined,
-        direccion: campoFila(fila, "direccion") || undefined,
-        localidad: campoFila(fila, "localidad") || undefined,
-        telefono: campoFila(fila, "telefono") || undefined,
-        email: campoFila(fila, "email") || undefined,
-        notas: campoFila(fila, "notas") || undefined,
-      });
-      importados++;
-    } catch (error) {
-      console.error("[clientes] error al importar fila:", nombre, error);
-      errores++;
-    }
+  try {
+    const resultado = await crearClientesEnLote(filasValidas);
+    importados = resultado.importados;
+    errores = resultado.errores;
+  } catch (error) {
+    console.error("[clientes] error al importar lote:", error);
+    return {
+      error: "No se pudo importar el archivo. Intentá de nuevo.",
+      resumen: null,
+    };
   }
 
   revalidatePath("/clientes");

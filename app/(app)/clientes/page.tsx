@@ -1,4 +1,4 @@
-import { listarClientes } from "@/lib/data/clientes";
+import { listarClientesResumen } from "@/lib/data/clientes";
 import { ButtonLink } from "@/app/components/ui/form";
 import { PageHeader } from "@/app/components/ui/display";
 import { Card } from "@/app/components/ui/display";
@@ -34,7 +34,7 @@ export default async function ClientesPage({
   searchParams: Promise<SearchParams>;
 }) {
   const [clientes, params] = await Promise.all([
-    listarClientes(),
+    listarClientesResumen(),
     searchParams,
   ]);
   const conTelefono = clientes.filter((c) => c.telefono).length;

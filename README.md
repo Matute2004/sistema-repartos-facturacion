@@ -65,6 +65,26 @@ Convenciones del dominio:
 - Los estados de reparto/remito están centralizados en `lib/estados.ts`.
 - Las fechas se guardan como `TEXT` en formato `YYYY-MM-DD`.
 
+## Seguridad
+
+- **Login**: passwords con `scrypt` (salt por usuario), cookie de sesión
+  firmada con HMAC-SHA256 (`httpOnly`, `SameSite=Lax`, expiración 30 días) y
+  **control de fuerza bruta**: 8 intentos fallidos por usuario o IP bloquean
+  el login por 10 minutos (tabla `login_intentos`, creada en `db:migrate`).
+- **Acceso**: todas las páginas y Server Actions pasan por `exigirAdmin()`.
+  No existe rol de menor privilegio: todos los usuarios son administradores.
+- **PII de clientes**: las listas que van al navegador usan vistas livianas
+  (sin notas internas ni fechas); las notas solo se ven en el detalle.
+  La importación masiva recorta campos a un largo máximo, limita a
+  `5000` filas por lote e inserta por `batch` (no una query por fila).
+- **Headers HTTP**: `X-Content-Type-Options`, `X-Frame-Options`,
+  `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` y
+  `Cross-Origin-Resource-Policy` en toda la app; `Strict-Transport-Security`
+  (HSTS) solo en producción. Una CSP estricta es viable pero conviene probarla
+  en el deploy real antes de activarla (ver `next.config.ts`).
+- **SQL**: todas las consultas usan parámetros (`?`); no hay interpolación de
+  strings del usuario en SQL.
+
 ## Tests
 
 ```bash

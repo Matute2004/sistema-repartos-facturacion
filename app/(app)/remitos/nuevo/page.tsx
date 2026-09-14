@@ -2,14 +2,14 @@ import Link from "next/link";
 import { ButtonLink } from "@/app/components/ui/form";
 import { Card, PageHeader } from "@/app/components/ui/display";
 import { RemitoForm } from "@/app/components/remitos/RemitoForm";
-import { listarClientes } from "@/lib/data/clientes";
+import { listarClientesParaSeleccion } from "@/lib/data/clientes";
 import { proximoNumeroRemito } from "@/lib/data/remitos";
 
 export const metadata = { title: "Nuevo remito" };
 
 export default async function NuevoRemitoPage() {
   const [clientes, numeroProximo] = await Promise.all([
-    listarClientes(),
+    listarClientesParaSeleccion(),
     proximoNumeroRemito(),
   ]);
 

@@ -121,3 +121,17 @@ CREATE TABLE IF NOT EXISTS usuarios (
 );
 
 CREATE INDEX IF NOT EXISTS idx_usuarios_nombre    ON usuarios(nombre);
+
+-- ----------------------------------------------------------------------------
+-- Control de intentos de login (anti fuerza bruta)
+-- Guarda intentos fallidos por usuario y por IP para bloquear temporalmente.
+-- La tabla se puede limpiar con el tiempo; no contiene datos sensibles.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS login_intentos (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  clave           TEXT NOT NULL,                  -- 'usuario:<nombre>' | 'ip:<direccion>'
+  intentado_en    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_intentos_clave
+  ON login_intentos(clave, intentado_en);
