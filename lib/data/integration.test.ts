@@ -10,6 +10,7 @@ import {
   listarClientesParaSeleccion,
   listarClientesResumen,
   obtenerCliente,
+  obtenerOCrearClientePorNombre,
 } from "@/lib/data/clientes";
 import {
   crearGasto,
@@ -18,6 +19,7 @@ import {
 } from "@/lib/data/gastos";
 import {
   actualizarEstadoReparto,
+  actualizarFormaPagoReparto,
   asignarRemitosAReparto,
   crearReparto,
   listarRepartos,
@@ -107,6 +109,20 @@ describe("flujo clientes", () => {
     // El detalle sí conserva las notas.
     const detalle = await obtenerCliente(resumen[0].id);
     expect(detalle?.notas).toBe("Nota interna secreta");
+  });
+
+  it("obtiene o crea un cliente por nombre sin duplicar (envía del reparto)", async () => {
+    const idCreado = await obtenerOCrearClientePorNombre("Peluquería Nuevo Sur");
+    const cliente = await obtenerCliente(idCreado);
+    expect(cliente?.nombre).toBe("Peluquería Nuevo Sur");
+    // Se crea solo con el nombre: el resto de los campos queda vacío.
+    expect(cliente?.numero).toBeNull();
+    expect(cliente?.cuit).toBeNull();
+
+    // El mismo nombre (sin distinguir mayúsculas) reutiliza el cliente.
+    const idExistente = await obtenerOCrearClientePorNombre("peluquería nuevo sur");
+    expect(idExistente).toBe(idCreado);
+    expect(await listarClientes()).toHaveLength(1);
   });
 });
 
@@ -216,6 +232,59 @@ describe("flujo repartos y asignación de remitos", () => {
 
     expect(await listarRemitosDelReparto(reparto1)).toHaveLength(1);
     expect(await listarRemitosDelReparto(reparto2)).toHaveLength(0);
+  });
+
+  it("crea un reparto con cliente y mercadería directa (sin remito) y calcula su valor", async () => {
+    const clienteId = await crearClienteBasico(7);
+    const repartoId = await crearReparto({
+      fecha: "2026-09-13",
+      clienteId,
+      enviadoPor: "Cliente 7",
+      llevaRemito: false,
+      unidad: "caja",
+      cantidad: 3,
+      itemDescripcion: "Caja de agua",
+      itemPrecioUnitarioCentavos: 2500,
+      formaPago: "cuenta_corriente",
+    });
+
+    const reparto = await obtenerReparto(repartoId);
+    expect(reparto?.clienteId).toBe(clienteId);
+    expect(reparto?.clienteNombre).toBe("Cliente 7");
+    expect(reparto?.llevaRemito).toBe(false);
+    expect(reparto?.unidad).toBe("caja");
+    expect(reparto?.cantidad).toBe(3);
+    expect(reparto?.itemPrecioUnitarioCentavos).toBe(2500);
+    expect(reparto?.formaPago).toBe("cuenta_corriente");
+    // 3 cajas x $2.500 = $7.500 (mercadería directa suma al valor del reparto)
+    expect(reparto?.valorCentavos).toBe(7500);
+  });
+
+  it("crea un remito ya asignado a un reparto y lo lista en listarRepartos().remitos", async () => {
+    const clienteId = await crearClienteBasico(8);
+    const repartoId = await crearReparto({ fecha: "2026-09-14", clienteId });
+    const remitoId = await crearRemito({
+      numero: await proximoNumeroRemito(),
+      clienteId,
+      fecha: "2026-09-14",
+      repartoId,
+      items: [{ descripcion: "a", cantidad: 1, precioUnitarioCentavos: 100 }],
+    });
+
+    const lista = await listarRepartos();
+    const reparto = lista.find((r) => r.id === repartoId);
+    expect(reparto?.remitos).toHaveLength(1);
+    expect(reparto?.remitos[0].id).toBe(remitoId);
+    expect(reparto?.remitos[0].numero).toBeGreaterThan(0);
+    expect(reparto?.valorCentavos).toBe(100);
+  });
+
+  it("actualiza la forma de pago de un reparto", async () => {
+    const repartoId = await crearReparto({ fecha: "2026-09-14" });
+    expect((await obtenerReparto(repartoId))?.formaPago).toBe("contado");
+
+    await actualizarFormaPagoReparto(repartoId, "cheque");
+    expect((await obtenerReparto(repartoId))?.formaPago).toBe("cheque");
   });
 });
 

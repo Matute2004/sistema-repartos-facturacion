@@ -2,6 +2,26 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getDb } from "@/lib/db";
 
+/** Agrega una columna si todavía no existe (idempotente, igual que en migrate.mjs). */
+async function agregarColumna(
+  db: Awaited<ReturnType<typeof getDb>>,
+  tabla: string,
+  columna: string,
+  definicion: string,
+): Promise<void> {
+  try {
+    await db.execute(`ALTER TABLE ${tabla} ADD COLUMN ${columna} ${definicion}`);
+  } catch (error) {
+    const mensaje = String(error);
+    if (
+      !mensaje.includes("duplicate column") &&
+      !mensaje.includes("already has column")
+    ) {
+      throw error;
+    }
+  }
+}
+
 /**
  * Ejecuta el esquema inicial (lib/schema.sql) de forma idempotente.
  *
@@ -20,17 +40,23 @@ export async function migrate(): Promise<void> {
 
   // Columnas agregadas en versiones posteriores al esquema inicial.
   // `numero` (N° visible de cliente) se carga a mano al dar de alta.
-  try {
-    await db.execute("ALTER TABLE clientes ADD COLUMN numero INTEGER");
-  } catch (error) {
-    const mensaje = String(error);
-    if (
-      !mensaje.includes("duplicate column") &&
-      !mensaje.includes("already has column")
-    ) {
-      throw error;
-    }
-  }
+  await agregarColumna(db, "clientes", "numero", "INTEGER");
+
+  // El reparto ahora se vincula a un cliente (campo "Envía"), puede llevar
+  // remito o una mercadería directa, y registra la forma de pago.
+  await agregarColumna(db, "repartos", "cliente_id", "INTEGER REFERENCES clientes(id) ON DELETE SET NULL");
+  await agregarColumna(db, "repartos", "lleva_remito", "INTEGER NOT NULL DEFAULT 0");
+  await agregarColumna(db, "repartos", "unidad", "TEXT");
+  await agregarColumna(db, "repartos", "cantidad", "REAL");
+  await agregarColumna(db, "repartos", "item_descripcion", "TEXT");
+  await agregarColumna(db, "repartos", "item_precio_unitario_centavos", "INTEGER NOT NULL DEFAULT 0");
+  await agregarColumna(db, "repartos", "forma_pago", "TEXT NOT NULL DEFAULT 'contado' CHECK (forma_pago IN ('contado', 'cuenta_corriente', 'debito', 'cheque'))");
+
+  // Índice sobre la nueva columna: se crea acá (y no en schema.sql) porque las
+  // bases existentes todavía no tienen la columna cuando se ejecuta el schema.
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_repartos_cliente ON repartos(cliente_id)",
+  );
 
   // Rol único: el sistema opera solo con administradores. Si quedaron
   // usuarios con rol 'operador' de versiones previas, se los promueve.

@@ -4,14 +4,18 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction } from "@/app/actions/estado";
 import { exigirAdmin } from "@/lib/auth";
+import { obtenerOCrearClientePorNombre } from "@/lib/data/clientes";
 import { ESTADOS_REPARTO } from "@/lib/estados";
 import {
   actualizarEstadoReparto,
+  actualizarFormaPagoReparto,
   asignarRemitosAReparto,
   crearReparto,
   eliminarReparto,
 } from "@/lib/data/repartos";
-import type { EstadoReparto } from "@/lib/types";
+import { crearRemito, proximoNumeroRemito } from "@/lib/data/remitos";
+import { FORMAS_PAGO, pesosACentavos } from "@/lib/types";
+import type { EstadoReparto, FormaPago } from "@/lib/types";
 
 function texto(formData: FormData, campo: string): string {
   return String(formData.get(campo) ?? "").trim();
@@ -26,6 +30,56 @@ function esEstadoReparto(valor: string): valor is EstadoReparto {
   return (ESTADOS_REPARTO as readonly string[]).includes(valor);
 }
 
+function esFormaPago(valor: string): valor is FormaPago {
+  return (FORMAS_PAGO as readonly string[]).includes(valor);
+}
+
+/** Cantidad parseada con coma decimal (ej: "1,5" -> 1.5). Usa `porDefecto` si está vacía o es inválida. */
+function cantidadPositiva(
+  formData: FormData,
+  campo: string,
+  porDefecto: number,
+): number {
+  const valor = Number(String(formData.get(campo) ?? "").replace(",", "."));
+  return Number.isFinite(valor) && valor > 0 ? valor : porDefecto;
+}
+
+/** Reconstruye los items del remito a partir de los campos repetidos del formulario. */
+function itemsDelFormulario(formData: FormData): Array<{
+  descripcion: string;
+  cantidad: number;
+  precioUnitarioCentavos: number;
+}> {
+  const descripciones = formData
+    .getAll("item_descripcion")
+    .map((valor) => String(valor).trim());
+  const cantidades = formData
+    .getAll("item_cantidad")
+    .map((valor) => Number(String(valor).replace(",", ".")));
+  const precios = formData.getAll("item_precio").map((valor) =>
+    pesosACentavos(String(valor)),
+  );
+
+  const items: Array<{
+    descripcion: string;
+    cantidad: number;
+    precioUnitarioCentavos: number;
+  }> = [];
+
+  for (let i = 0; i < descripciones.length; i += 1) {
+    const descripcion = descripciones[i];
+    const cantidad = cantidades[i] ?? 0;
+    if (!descripcion || !Number.isFinite(cantidad) || cantidad <= 0) continue;
+    items.push({
+      descripcion,
+      cantidad,
+      precioUnitarioCentavos: Math.max(0, precios[i] ?? 0),
+    });
+  }
+
+  return items;
+}
+
 // ----------------------------------------------------------------------------
 // Alta de reparto
 // ----------------------------------------------------------------------------
@@ -34,25 +88,75 @@ export async function crearRepartoAction(
   formData: FormData,
 ): Promise<EstadoAction> {
   await exigirAdmin();
+
   const fecha = texto(formData, "fecha");
   if (!fecha) {
     return { error: "La fecha del reparto es obligatoria." };
   }
 
+  const nombreEnvia = texto(formData, "enviado_por");
+  if (!nombreEnvia) {
+    return { error: "Completá quién envía (el cliente del reparto)." };
+  }
+
+  const llevaRemito = formData.get("lleva_remito") !== null;
+  const formaPagoValor = texto(formData, "forma_pago") || "contado";
+  if (!esFormaPago(formaPagoValor)) {
+    return { error: "Forma de pago inválida." };
+  }
+
+  // Si el reparto lleva remito, validamos los items antes de crear cualquier cosa.
+  const itemsRemito = llevaRemito ? itemsDelFormulario(formData) : [];
+  if (llevaRemito && itemsRemito.length === 0) {
+    return {
+      error:
+        "Si el reparto lleva remito, cargá al menos una línea con descripción y cantidad mayor a 0.",
+    };
+  }
+
   try {
+    // "Envía" puede ser un cliente existente (desplegable) o un nombre nuevo:
+    // en ese caso se crea el cliente con el resto de los campos vacíos.
+    const clienteId = await obtenerOCrearClientePorNombre(nombreEnvia);
+
     const repartoId = await crearReparto({
       fecha,
       estado: "pendiente",
-      enviadoPor: textoOpcional(formData, "enviado_por"),
+      clienteId,
+      enviadoPor: nombreEnvia,
       recibidoPor: textoOpcional(formData, "recibido_por"),
       observaciones: textoOpcional(formData, "observaciones"),
+      llevaRemito,
+      formaPago: formaPagoValor,
+      // Mercadería directa (solo cuando NO lleva remito).
+      unidad: llevaRemito ? undefined : textoOpcional(formData, "unidad") ?? "caja",
+      cantidad: llevaRemito ? undefined : cantidadPositiva(formData, "cantidad", 1),
+      itemDescripcion: llevaRemito
+        ? undefined
+        : textoOpcional(formData, "item_descripcion"),
+      itemPrecioUnitarioCentavos: llevaRemito
+        ? undefined
+        : Math.max(0, pesosACentavos(texto(formData, "item_precio"))),
     });
 
+    // Si lleva remito, lo emitimos en el mismo alta y queda asociado al cliente.
+    if (llevaRemito && repartoId) {
+      const numero = await proximoNumeroRemito();
+      await crearRemito({
+        numero,
+        clienteId,
+        fecha,
+        repartoId,
+        observaciones: textoOpcional(formData, "remito_observaciones"),
+        items: itemsRemito,
+      });
+    }
+
+    // Remitos pendientes ya existentes seleccionados en el formulario.
     const remitosSeleccionados = formData
       .getAll("remito_id")
       .map((valor) => Number(valor))
       .filter((id) => Number.isInteger(id) && id > 0);
-
     if (repartoId && remitosSeleccionados.length > 0) {
       await asignarRemitosAReparto(repartoId, remitosSeleccionados);
     }
@@ -63,6 +167,36 @@ export async function crearRepartoAction(
 
   revalidatePath("/repartos");
   redirect("/repartos");
+}
+
+// ----------------------------------------------------------------------------
+// Forma de pago (desplegable inline en el listado)
+// ----------------------------------------------------------------------------
+export async function actualizarFormaPagoRepartoAction(
+  _estado: EstadoAction,
+  formData: FormData,
+): Promise<EstadoAction> {
+  await exigirAdmin();
+  const id = Number(formData.get("id"));
+  const formaPago = texto(formData, "forma_pago");
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return { error: "Reparto inválido." };
+  }
+  if (!esFormaPago(formaPago)) {
+    return { error: "Forma de pago inválida." };
+  }
+
+  try {
+    await actualizarFormaPagoReparto(id, formaPago);
+  } catch (error) {
+    console.error("[repartos] error al actualizar forma de pago:", error);
+    return { error: "No se pudo actualizar la forma de pago." };
+  }
+
+  revalidatePath(`/repartos/${id}`);
+  revalidatePath("/repartos");
+  return { error: null };
 }
 
 // ----------------------------------------------------------------------------

@@ -102,6 +102,8 @@ export interface DatosNuevoRemito {
   clienteId: number;
   fecha: string;
   observaciones?: string;
+  /** Si viene, el remito se crea ya asignado a este reparto. */
+  repartoId?: number;
   items: Array<{
     descripcion: string;
     cantidad: number;
@@ -114,9 +116,15 @@ export async function crearRemito(datos: DatosNuevoRemito): Promise<number> {
   const db = await getDb();
 
   const insertRemito: InStatement = {
-    sql: `INSERT INTO remitos (numero, cliente_id, fecha, estado, observaciones)
-          VALUES (?, ?, ?, 'pendiente', ?)`,
-    args: [datos.numero, datos.clienteId, datos.fecha, datos.observaciones ?? null],
+    sql: `INSERT INTO remitos (numero, cliente_id, reparto_id, fecha, estado, observaciones)
+          VALUES (?, ?, ?, ?, 'pendiente', ?)`,
+    args: [
+      datos.numero,
+      datos.clienteId,
+      datos.repartoId ?? null,
+      datos.fecha,
+      datos.observaciones ?? null,
+    ],
   };
 
   const [resultado] = await db.batch([insertRemito]);

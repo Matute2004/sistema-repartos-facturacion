@@ -31,6 +31,14 @@ CREATE TABLE IF NOT EXISTS repartos (
   fecha       TEXT NOT NULL DEFAULT (date('now')), -- YYYY-MM-DD
   estado      TEXT NOT NULL DEFAULT 'pendiente'
               CHECK (estado IN ('pendiente', 'en_curso', 'completado', 'cancelado')),
+  cliente_id  INTEGER REFERENCES clientes(id) ON DELETE SET NULL,
+  lleva_remito INTEGER NOT NULL DEFAULT 0,
+  unidad      TEXT,                            -- unidad del ítem directo (ej: "caja")
+  cantidad    REAL,                            -- cantidad del ítem directo
+  item_descripcion TEXT,                       -- descripción del ítem directo
+  item_precio_unitario_centavos INTEGER NOT NULL DEFAULT 0,
+  forma_pago  TEXT NOT NULL DEFAULT 'contado'
+              CHECK (forma_pago IN ('contado', 'cuenta_corriente', 'debito', 'cheque')),
   chofer      TEXT,
   vehiculo    TEXT,
   notas       TEXT,

@@ -12,6 +12,8 @@ import {
   Th,
 } from "@/app/components/ui/display";
 import { EstadoRepartoCheckbox } from "@/app/components/repartos/EstadoRepartoCheckbox";
+import { FormaPagoSelect } from "@/app/components/repartos/FormaPagoSelect";
+import { RemitoModal } from "@/app/components/repartos/RemitoModal";
 import {
   ETIQUETA_ESTADO_REPARTO,
   TONE_ESTADO_REPARTO,
@@ -26,7 +28,7 @@ export default async function RepartosPage() {
     <div>
       <PageHeader
         title="Repartos"
-        description="Hojas de ruta diarias: asigná remitos a cada reparto."
+        description="Hojas de ruta diarias: asigná remitos a cada reparto y registrá la forma de pago."
         action={
           <ButtonLink href="/repartos/nuevo" variant="primary">
             + Crear reparto
@@ -55,7 +57,9 @@ export default async function RepartosPage() {
                 <Th>Envía</Th>
                 <Th>Recibe</Th>
                 <Th>Observaciones</Th>
+                <Th>Remitos</Th>
                 <Th className="text-right">Valor</Th>
+                <Th>Forma de pago</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -81,7 +85,7 @@ export default async function RepartosPage() {
                     </Badge>
                   </Td>
                   <Td>
-                    {reparto.enviadoPor ?? (
+                    {reparto.clienteNombre ?? reparto.enviadoPor ?? (
                       <span className="text-zinc-400">—</span>
                     )}
                   </Td>
@@ -95,8 +99,21 @@ export default async function RepartosPage() {
                       <span className="text-zinc-400">—</span>
                     )}
                   </Td>
+                  <Td>
+                    {reparto.remitos.length === 0 ? (
+                      <span className="text-zinc-400">—</span>
+                    ) : (
+                      <RemitoModal remitos={reparto.remitos} />
+                    )}
+                  </Td>
                   <Td className="whitespace-nowrap text-right font-medium text-zinc-900">
                     {formatPesos(reparto.valorCentavos)}
+                  </Td>
+                  <Td className="whitespace-nowrap">
+                    <FormaPagoSelect
+                      repartoId={reparto.id}
+                      valorActual={reparto.formaPago}
+                    />
                   </Td>
                 </tr>
               ))}

@@ -5,7 +5,7 @@ import {
   listarRemitosDelReparto,
   listarRemitosPendientesSinAsignar,
 } from "@/lib/data/remitos";
-import { formatFecha, formatPesos } from "@/lib/types";
+import { ETIQUETA_FORMA_PAGO, formatFecha, formatPesos } from "@/lib/types";
 import { ButtonLink } from "@/app/components/ui/form";
 import {
   Badge,
@@ -56,7 +56,7 @@ export default async function DetalleRepartoPage({
         />
 
         <Card className="mb-6 p-5">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Estado
@@ -75,13 +75,22 @@ export default async function DetalleRepartoPage({
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Envía
+                Cliente (Envía)
               </p>
-              <p className="mt-1 text-sm text-zinc-900">
-                {reparto.enviadoPor ?? (
-                  <span className="text-zinc-400">—</span>
-                )}
-              </p>
+              {reparto.clienteId ? (
+                <Link
+                  href={`/clientes/${reparto.clienteId}`}
+                  className="mt-1 inline-block text-sm text-emerald-700 underline-offset-2 hover:underline"
+                >
+                  {reparto.clienteNombre ?? reparto.enviadoPor}
+                </Link>
+              ) : (
+                <p className="mt-1 text-sm text-zinc-900">
+                  {reparto.enviadoPor ?? (
+                    <span className="text-zinc-400">—</span>
+                  )}
+                </p>
+              )}
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
@@ -93,12 +102,43 @@ export default async function DetalleRepartoPage({
                 )}
               </p>
             </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Forma de pago
+              </p>
+              <p className="mt-1 text-sm font-medium text-zinc-900">
+                {ETIQUETA_FORMA_PAGO[reparto.formaPago]}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Valor total
+              </p>
+              <p className="mt-1 text-sm font-bold text-zinc-900">
+                {formatPesos(reparto.valorCentavos)}
+              </p>
+            </div>
           </div>
 
           {reparto.observaciones && (
             <p className="mt-4 rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
               {reparto.observaciones}
             </p>
+          )}
+
+          {!reparto.llevaRemito && reparto.cantidad != null && (
+            <div className="mt-4 rounded-lg border border-zinc-200 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Mercadería directa del reparto
+              </p>
+              <p className="mt-1 text-sm text-zinc-900">
+                {reparto.itemDescripcion ?? "Carga"}
+                {" · "}
+                {reparto.cantidad} {reparto.unidad ?? "caja"}
+                {" · "}
+                {formatPesos(reparto.itemPrecioUnitarioCentavos ?? 0)} c/u
+              </p>
+            </div>
           )}
 
           <div className="mt-5 flex flex-wrap items-end gap-x-8 gap-y-4 border-t border-zinc-100 pt-4">

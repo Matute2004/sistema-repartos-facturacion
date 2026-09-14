@@ -60,6 +60,41 @@ try {
     }
   }
 
+  // El reparto ahora se vincula a un cliente (campo "Envía"), puede llevar
+  // remito o una mercadería directa, y registra la forma de pago.
+  // (Coincide con las columnas de lib/schema.sql y lib/migrate.ts.)
+  const columnasRepartos = [
+    ["cliente_id", "INTEGER REFERENCES clientes(id) ON DELETE SET NULL"],
+    ["lleva_remito", "INTEGER NOT NULL DEFAULT 0"],
+    ["unidad", "TEXT"],
+    ["cantidad", "REAL"],
+    ["item_descripcion", "TEXT"],
+    ["item_precio_unitario_centavos", "INTEGER NOT NULL DEFAULT 0"],
+    [
+      "forma_pago",
+      "TEXT NOT NULL DEFAULT 'contado' CHECK (forma_pago IN ('contado', 'cuenta_corriente', 'debito', 'cheque'))",
+    ],
+  ];
+  for (const [columna, definicion] of columnasRepartos) {
+    try {
+      await db.execute(`ALTER TABLE repartos ADD COLUMN ${columna} ${definicion}`);
+    } catch (error) {
+      const mensaje = String(error);
+      if (
+        !mensaje.includes("duplicate column") &&
+        !mensaje.includes("already has column")
+      ) {
+        throw error;
+      }
+    }
+  }
+
+  // Índice sobre la nueva columna: se crea acá (y no en schema.sql) porque las
+  // bases existentes todavía no tienen la columna cuando se ejecuta el schema.
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_repartos_cliente ON repartos(cliente_id)",
+  );
+
   // Rol único: el sistema opera solo con administradores. Si quedaron
   // usuarios con rol 'operador' de versiones previas, se los promueve.
   await db.execute("UPDATE usuarios SET rol = 'admin' WHERE rol = 'operador'");

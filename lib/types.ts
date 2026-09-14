@@ -57,19 +57,65 @@ export interface Gasto {
 // ----------------------------------------------------------------------------
 export type EstadoReparto = "pendiente" | "en_curso" | "completado" | "cancelado";
 
+// ----------------------------------------------------------------------------
+// Formas de pago de los repartos
+// ----------------------------------------------------------------------------
+export const FORMAS_PAGO = [
+  "contado",
+  "cuenta_corriente",
+  "debito",
+  "cheque",
+] as const;
+
+export type FormaPago = (typeof FORMAS_PAGO)[number];
+
+export const ETIQUETA_FORMA_PAGO: Record<FormaPago, string> = {
+  contado: "Contado",
+  cuenta_corriente: "Cuenta corriente",
+  debito: "Débito",
+  cheque: "Cheque",
+};
+
+/** Remito resumido que se muestra dentro de un reparto (columna "Remitos"). */
+export interface RepartoRemitoLigero {
+  id: number;
+  numero: number;
+}
+
 export interface Reparto {
   id: number;
   fecha: string;
   estado: EstadoReparto;
+  /** Cliente vinculado al reparto (el "Envía"), o null si es un reparto viejo. */
+  clienteId: number | null;
+  /** Nombre del cliente vinculado, para mostrar directo en listas. */
+  clienteNombre: string | null;
   /** Quién envía / entrega el reparto (columna `chofer` en la DB). */
   enviadoPor: string | null;
   /** Quién recibe el reparto (columna `vehiculo` en la DB). */
   recibidoPor: string | null;
   /** Observaciones del reparto (columna `notas` en la DB). */
   observaciones: string | null;
-  /** Suma del valor de todos los remitos asignados, en centavos. */
+  /** Indica si el reparto lleva remito (se emite al darlo de alta). */
+  llevaRemito: boolean;
+  /** Unidad de la mercadería directa (ej: "caja") cuando no lleva remito. */
+  unidad: string | null;
+  /** Cantidad de la mercadería directa cuando no lleva remito. */
+  cantidad: number | null;
+  /** Descripción de la mercadería directa cuando no lleva remito. */
+  itemDescripcion: string | null;
+  /** Precio unitario (centavos) de la mercadería directa. */
+  itemPrecioUnitarioCentavos: number | null;
+  /** Forma de pago elegida para el reparto. */
+  formaPago: FormaPago;
+  /**
+   * Valor total en centavos: suma de los remitos asignados + la mercadería
+   * directa (cuando el reparto no lleva remito).
+   */
   valorCentavos: number;
   creadoEn: string;
+  /** Remitos asociados (solo id + número), poblados en `listarRepartos`. */
+  remitos: RepartoRemitoLigero[];
 }
 
 export type EstadoRemito = "pendiente" | "entregado" | "cancelado";

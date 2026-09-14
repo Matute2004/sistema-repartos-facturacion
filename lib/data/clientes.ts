@@ -149,6 +149,24 @@ export interface ResultadoLoteClientes {
   errores: number;
 }
 
+/**
+ * Busca un cliente por nombre exacto (sin distinguir mayúsculas) o lo crea al
+ * vuelo con ese nombre y el resto de los campos vacíos. Se usa cuando el
+ * "Envía" del reparto es un cliente que todavía no está registrado.
+ * Devuelve el id del cliente encontrado o creado.
+ */
+export async function obtenerOCrearClientePorNombre(nombre: string): Promise<number> {
+  const db = await getDb();
+  const existente = await db.execute(
+    `SELECT id FROM clientes WHERE nombre = ? COLLATE NOCASE LIMIT 1`,
+    [nombre],
+  );
+  if (existente.rows.length > 0) {
+    return Number((existente.rows[0] as FilaCliente).id);
+  }
+  return crearCliente({ nombre, numero: null });
+}
+
 /** Cantidad de filas que se envían juntas en cada `batch()` a la base. */
 const TAMANO_LOTE_IMPORTACION = 100;
 
