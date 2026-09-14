@@ -81,12 +81,12 @@ describe("crearRepartoAction", () => {
     formData.set("enviado_por", "Comercio Nuevo");
     formData.set("recibido_por", "Chofer");
     formData.set("forma_pago", "debito");
-    formData.append("item_descripcion", "Caja de galletitas");
-    formData.append("item_cantidad", "2");
-    formData.append("item_precio", "1.200,00");
-    formData.append("item_descripcion", "Rueda 175/70");
-    formData.append("item_cantidad", "4");
-    formData.append("item_precio", "45.000,00");
+    formData.append("reparto_item_descripcion", "Caja de galletitas");
+    formData.append("reparto_item_cantidad", "2");
+    formData.append("reparto_item_precio", "1.200,00");
+    formData.append("reparto_item_descripcion", "Rueda 175/70");
+    formData.append("reparto_item_cantidad", "4");
+    formData.append("reparto_item_precio", "45.000,00");
 
     await expect(crearRepartoAction(estadoInicial, formData)).rejects.toThrow(
       SENAL_REDIRECT,
@@ -124,9 +124,9 @@ describe("crearRepartoAction", () => {
     const formData = new FormData();
     formData.set("fecha", "2026-09-13");
     formData.set("enviado_por", "Cliente Nuevo");
-    formData.append("item_descripcion", "Caja surtida");
-    formData.append("item_cantidad", "1");
-    formData.append("item_precio", "500");
+    formData.append("reparto_item_descripcion", "Caja surtida");
+    formData.append("reparto_item_cantidad", "1");
+    formData.append("reparto_item_precio", "500");
 
     await expect(crearRepartoAction(estadoInicial, formData)).rejects.toThrow(
       SENAL_REDIRECT,

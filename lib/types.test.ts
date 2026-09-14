@@ -4,7 +4,10 @@ import {
   formatFecha,
   formatKilometros,
   formatPesos,
+  mesLegible,
+  normalizarMes,
   pesosACentavos,
+  sumarMeses,
 } from "@/lib/types";
 
 describe("pesosACentavos", () => {
@@ -70,5 +73,38 @@ describe("formatKilometros", () => {
   it("formatea con separador de miles y sufijo km", () => {
     expect(formatKilometros(12345)).toContain("12.345");
     expect(formatKilometros(0)).toContain("0");
+  });
+});
+
+describe("sumarMeses", () => {
+  it("suma meses dentro del mismo año", () => {
+    expect(sumarMeses("2026-09", 1)).toBe("2026-10");
+    expect(sumarMeses("2026-09", -1)).toBe("2026-08");
+  });
+
+  it("cruza de año hacia adelante y hacia atrás", () => {
+    expect(sumarMeses("2026-12", 1)).toBe("2027-01");
+    expect(sumarMeses("2026-01", -1)).toBe("2025-12");
+  });
+});
+
+describe("normalizarMes", () => {
+  it("devuelve el mes actual ante valores vacíos o inválidos", () => {
+    const actual = fechaHoyLocal().slice(0, 7);
+    expect(normalizarMes(undefined)).toBe(actual);
+    expect(normalizarMes(null)).toBe(actual);
+    expect(normalizarMes("septiembre")).toBe(actual);
+    expect(normalizarMes("2026/09")).toBe(actual);
+  });
+
+  it("acepta un mes válido YYYY-MM", () => {
+    expect(normalizarMes("2026-08")).toBe("2026-08");
+  });
+});
+
+describe("mesLegible", () => {
+  it("formatea un mes YYYY-MM en es-AR", () => {
+    expect(mesLegible("2026-09")).toContain("septiembre");
+    expect(mesLegible("2026-09")).toContain("2026");
   });
 });

@@ -44,7 +44,13 @@ export function RepartoForm({
   );
 
   const [llevaRemito, setLlevaRemito] = useState(false);
-  const [items, setItems] = useState<FilaItem[]>([
+
+  // Items del remito (campo "lleva_remito"): se guardan en la tabla remito_items
+  const [remitoItems, setRemitoItems] = useState<FilaItem[]>([
+    { key: 0, descripcion: "", cantidad: "1", precio: "" },
+  ]);
+  // Items directos del reparto (mercadería sin remito): se guardan en reparto_items
+  const [repItems, setRepItems] = useState<FilaItem[]>([
     { key: 0, descripcion: "", cantidad: "1", precio: "" },
   ]);
 
@@ -76,14 +82,15 @@ export function RepartoForm({
     setListaAbierta(false);
   }
 
+  // Helpers para la lista de items directos del reparto (reparto_item_*)
   function actualizarFila(key: number, campo: keyof FilaItem, valor: string) {
-    setItems((prev) =>
+    setRepItems((prev) =>
       prev.map((fila) => (fila.key === key ? { ...fila, [campo]: valor } : fila)),
     );
   }
 
   function agregarFila() {
-    setItems((prev) => [
+    setRepItems((prev) => [
       ...prev,
       { key: siguienteKey, descripcion: "", cantidad: "1", precio: "" },
     ]);
@@ -91,10 +98,36 @@ export function RepartoForm({
   }
 
   function quitarFila(key: number) {
-    setItems((prev) => prev.filter((fila) => fila.key !== key));
+    setRepItems((prev) => prev.filter((fila) => fila.key !== key));
   }
 
-  const totalItemsCentavos = items.reduce(
+  const totalItemsCentavos = repItems.reduce(
+    (total, fila) => total + Number(fila.cantidad) * pesosACentavos(fila.precio),
+    0,
+  );
+
+  // Helpers para la lista de items del remito (item_*)
+  function actualizarRemitoFila(key: number, campo: keyof FilaItem, valor: string) {
+    setRemitoItems((prev) =>
+      prev.map((fila) =>
+        fila.key === key ? { ...fila, [campo]: valor } : fila,
+      ),
+    );
+  }
+
+  function agregarRemitoFila() {
+    setRemitoItems((prev) => [
+      ...prev,
+      { key: siguienteKey, descripcion: "", cantidad: "1", precio: "" },
+    ]);
+    siguienteKey += 1;
+  }
+
+  function quitarRemitoFila(key: number) {
+    setRemitoItems((prev) => prev.filter((fila) => fila.key !== key));
+  }
+
+  const totalRemitoCentavos = remitoItems.reduce(
     (total, fila) => total + Number(fila.cantidad) * pesosACentavos(fila.precio),
     0,
   );
@@ -253,19 +286,19 @@ export function RepartoForm({
         </label>
         <p className="mt-1 pl-7 text-xs text-zinc-500">
           Si lo tildás, emitís el remito acá mismo y queda asociado al cliente
-          del campo “Envía”. Si no, cargás la mercadería directa del reparto
-          (una o varias líneas con descripción, cantidad y valor).
+          del campo “Envía”. Igual podés cargar mercadería directa del reparto
+          (una caja, un sobre…) más abajo, además del remito.
         </p>
       </div>
 
-      {llevaRemito ? (
+      {llevaRemito && (
         <div className="space-y-3 rounded-lg border border-zinc-200 p-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-zinc-700">Remito incluido</p>
             <Button
               type="button"
               variant="secondary"
-              onClick={agregarFila}
+              onClick={agregarRemitoFila}
               disabled={pending}
             >
               + Agregar línea
@@ -276,13 +309,13 @@ export function RepartoForm({
             asignado a este reparto.
           </p>
 
-          {items.length === 0 && (
+          {remitoItems.length === 0 && (
             <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-400">
               Todavía no hay líneas. Agregá al menos una.
             </p>
           )}
 
-          {items.map((fila, indice) => (
+          {remitoItems.map((fila, indice) => (
             <div
               key={fila.key}
               className="grid grid-cols-12 items-end gap-2 rounded-lg border border-zinc-200 p-3"
@@ -298,7 +331,7 @@ export function RepartoForm({
                     placeholder="Ej: Caja de botellas 1,5 L"
                     value={fila.descripcion}
                     onChange={(e) =>
-                      actualizarFila(fila.key, "descripcion", e.target.value)
+                      actualizarRemitoFila(fila.key, "descripcion", e.target.value)
                     }
                     disabled={pending}
                   />
@@ -313,7 +346,7 @@ export function RepartoForm({
                     placeholder="1"
                     value={fila.cantidad}
                     onChange={(e) =>
-                      actualizarFila(fila.key, "cantidad", e.target.value)
+                      actualizarRemitoFila(fila.key, "cantidad", e.target.value)
                     }
                     disabled={pending}
                   />
@@ -328,7 +361,7 @@ export function RepartoForm({
                     placeholder="0,00"
                     value={fila.precio}
                     onChange={(e) =>
-                      actualizarFila(fila.key, "precio", e.target.value)
+                      actualizarRemitoFila(fila.key, "precio", e.target.value)
                     }
                     disabled={pending}
                   />
@@ -340,7 +373,7 @@ export function RepartoForm({
                   variant="danger"
                   className="px-2.5 py-2"
                   aria-label={`Quitar línea ${indice + 1}`}
-                  onClick={() => quitarFila(fila.key)}
+                  onClick={() => quitarRemitoFila(fila.key)}
                   disabled={pending}
                 >
                   ✕
@@ -352,7 +385,7 @@ export function RepartoForm({
           <div className="flex items-center justify-end gap-3 pt-1 text-sm">
             <span className="text-zinc-500">Total del remito</span>
             <span className="text-lg font-bold text-zinc-900">
-              {formatPesos(totalItemsCentavos)}
+              {formatPesos(totalRemitoCentavos)}
             </span>
           </div>
 
@@ -366,33 +399,34 @@ export function RepartoForm({
             />
           </Field>
         </div>
-      ) : (
-        <div className="space-y-3 rounded-lg border border-zinc-200 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-zinc-700">
-              Mercadería del reparto
-            </p>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={agregarFila}
-              disabled={pending}
-            >
-              + Agregar ítem
-            </Button>
-          </div>
-          <p className="text-xs text-zinc-500">
-            Cargá una línea por ítem: una caja, una rueda, un teléfono… El valor
-            se suma automáticamente.
+      )}
+
+      <div className="space-y-3 rounded-lg border border-zinc-200 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-medium text-zinc-700">
+            Mercadería del reparto
           </p>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={agregarFila}
+            disabled={pending}
+          >
+            + Agregar ítem
+          </Button>
+        </div>
+        <p className="text-xs text-zinc-500">
+          Cargá una línea por ítem: una caja, un sobre, una rueda, un teléfono…
+          El valor se suma automáticamente al reparto, además de los remitos.
+        </p>
 
-          {items.length === 0 && (
-            <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-400">
-              Todavía no hay ítems. Agregá al menos una línea.
-            </p>
-          )}
+        {repItems.length === 0 && (
+          <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-400">
+            Todavía no hay ítems. Agregá al menos una línea.
+          </p>
+        )}
 
-          {items.map((fila, indice) => (
+          {repItems.map((fila, indice) => (
             <div
               key={fila.key}
               className="grid grid-cols-12 items-end gap-2 rounded-lg border border-zinc-200 p-3"
@@ -404,7 +438,7 @@ export function RepartoForm({
                 >
                   <Input
                     id={`merc-desc-${fila.key}`}
-                    name="item_descripcion"
+                    name="reparto_item_descripcion"
                     placeholder="Ej: Caja de botellas"
                     value={fila.descripcion}
                     onChange={(e) =>
@@ -418,7 +452,7 @@ export function RepartoForm({
                 <Field label="Cantidad" htmlFor={`merc-cant-${fila.key}`}>
                   <Input
                     id={`merc-cant-${fila.key}`}
-                    name="item_cantidad"
+                    name="reparto_item_cantidad"
                     inputMode="decimal"
                     placeholder="1"
                     value={fila.cantidad}
@@ -433,7 +467,7 @@ export function RepartoForm({
                 <Field label="Valor" htmlFor={`merc-prec-${fila.key}`}>
                   <Input
                     id={`merc-prec-${fila.key}`}
-                    name="item_precio"
+                    name="reparto_item_precio"
                     inputMode="decimal"
                     placeholder="0,00"
                     value={fila.precio}
@@ -466,7 +500,6 @@ export function RepartoForm({
             </span>
           </div>
         </div>
-      )}
 
       <Field label="Observaciones del reparto" htmlFor="observaciones">
         <Textarea

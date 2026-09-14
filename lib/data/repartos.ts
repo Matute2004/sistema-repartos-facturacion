@@ -35,8 +35,8 @@ function mapearReparto(fila: Fila): Reparto {
 
 /**
  * SQL en común entre la lista y el detalle: reparto + cliente + valor total.
- * El valor suma los items de los remitos asignados y, cuando el reparto no
- * lleva remito, la mercadería directa del reparto (`reparto_items`).
+ * El valor suma los items de los remitos asignados y la mercadería directa
+ * del reparto (`reparto_items`), que puede cargarse con o sin remito.
  */
 const SQL_SELECCION_REPARTO = `
   SELECT rp.id, rp.fecha, rp.estado,
@@ -153,7 +153,7 @@ export interface DatosNuevoReparto {
   enviadoPor?: string;
   recibidoPor?: string;
   observaciones?: string;
-  /** Si el reparto lleva remito, la mercadería queda en el remito y no en el reparto. */
+  /** Si el reparto lleva remito, se emite uno en el alta (además de la mercadería directa). */
   llevaRemito?: boolean;
   /** Líneas de mercadería directa (descripción, cantidad y valor). */
   itemsMercaderia?: ItemMercaderiaNuevo[];
@@ -182,7 +182,8 @@ export async function crearReparto(datos: DatosNuevoReparto): Promise<number> {
   );
   const id = Number(resultado.lastInsertRowid ?? 0);
 
-  const items = datos.llevaRemito ? [] : (datos.itemsMercaderia ?? []);
+  // La mercadería directa se guarda siempre (con o sin remito).
+  const items = datos.itemsMercaderia ?? [];
   if (items.length > 0) {
     const statements: InStatement[] = items.map((item) => ({
       sql: `INSERT INTO reparto_items (reparto_id, descripcion, cantidad, precio_unitario_centavos)

@@ -15,7 +15,9 @@ import {
 import {
   crearGasto,
   listarGastos,
+  listarGastosDelMes,
   totalGastos,
+  totalGastosDelMes,
 } from "@/lib/data/gastos";
 import {
   actualizarEstadoReparto,
@@ -351,5 +353,37 @@ describe("flujo gastos", () => {
 
     expect(await totalGastos()).toBe(17000);
     expect(await listarGastos()).toHaveLength(2);
+  });
+
+  it("filtra gastos por mes (YYYY-MM)", async () => {
+    await crearGasto({
+      fecha: "2026-09-10",
+      categoria: "combustible",
+      descripcion: "Septiembre 1",
+      montoCentavos: 1000,
+    });
+    await crearGasto({
+      fecha: "2026-09-01",
+      categoria: "combustible",
+      descripcion: "Septiembre 2",
+      montoCentavos: 3000,
+    });
+    await crearGasto({
+      fecha: "2026-08-25",
+      categoria: "mecanico",
+      descripcion: "Agosto 1",
+      montoCentavos: 2000,
+    });
+
+    expect(await totalGastosDelMes("2026-09")).toBe(4000);
+    expect(await totalGastosDelMes("2026-08")).toBe(2000);
+    expect(await totalGastosDelMes("2026-07")).toBe(0);
+
+    const septiembre = await listarGastosDelMes("2026-09");
+    expect(septiembre).toHaveLength(2);
+    // Los más recientes primero.
+    expect(septiembre[0].descripcion).toBe("Septiembre 1");
+    expect(septiembre[1].descripcion).toBe("Septiembre 2");
+    expect(await listarGastosDelMes("2026-07")).toHaveLength(0);
   });
 });

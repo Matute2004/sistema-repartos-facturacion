@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { actualizarEstadoRepartoAction } from "@/app/actions/repartos";
 import { estadoInicial } from "@/app/actions/estado";
 import type { EstadoReparto } from "@/lib/types";
@@ -16,11 +17,18 @@ export function EstadoRepartoCheckbox({
   repartoId: number;
   estadoActual: EstadoReparto;
 }) {
+  const router = useRouter();
   const [estado, formAction, pending] = useActionState(
     actualizarEstadoRepartoAction,
     estadoInicial,
   );
   const completado = estadoActual === "completado";
+
+  useEffect(() => {
+    if (!pending && !estado.error) {
+      router.refresh();
+    }
+  }, [pending, estado.error, router]);
 
   return (
     <form action={formAction} className="inline-flex">

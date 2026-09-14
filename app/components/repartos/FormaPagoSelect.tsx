@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { actualizarFormaPagoRepartoAction } from "@/app/actions/repartos";
 import { estadoInicial } from "@/app/actions/estado";
 import { ETIQUETA_FORMA_PAGO, FORMAS_PAGO } from "@/lib/types";
@@ -20,10 +21,17 @@ export function FormaPagoSelect({
   repartoId: number;
   valorActual: FormaPago | null;
 }) {
+  const router = useRouter();
   const [estado, formAction, pending] = useActionState(
     actualizarFormaPagoRepartoAction,
     estadoInicial,
   );
+
+  useEffect(() => {
+    if (!pending && !estado.error) {
+      router.refresh();
+    }
+  }, [pending, estado.error, router]);
 
   return (
     <form action={formAction} className="inline-flex">

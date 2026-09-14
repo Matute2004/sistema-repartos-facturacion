@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { asignarRemitosAction } from "@/app/actions/repartos";
 import { estadoInicial } from "@/app/actions/estado";
 import type { RemitoDisponible } from "@/lib/data/remitos";
@@ -13,10 +14,17 @@ export function AsignarRemitosForm({
   repartoId: number;
   remitosDisponibles: RemitoDisponible[];
 }) {
+  const router = useRouter();
   const [estado, formAction, pending] = useActionState(
     asignarRemitosAction,
     estadoInicial,
   );
+
+  useEffect(() => {
+    if (!pending && !estado.error) {
+      router.refresh();
+    }
+  }, [pending, estado.error, router]);
 
   return (
     <form action={formAction} className="space-y-3">

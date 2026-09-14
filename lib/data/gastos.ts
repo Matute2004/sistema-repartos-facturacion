@@ -35,6 +35,29 @@ export async function totalGastos(): Promise<number> {
   return Number((resultado.rows[0] as FilaGasto).total);
 }
 
+/** Lista los gastos de un mes (YYYY-MM), los más recientes primero. */
+export async function listarGastosDelMes(mes: string): Promise<Gasto[]> {
+  const db = await getDb();
+  const resultado = await db.execute(
+    `SELECT id, fecha, categoria, descripcion, proveedor, monto_centavos, creado_en
+     FROM gastos
+     WHERE substr(fecha, 1, 7) = ?
+     ORDER BY fecha DESC, id DESC`,
+    [mes],
+  );
+  return resultado.rows.map((fila) => mapearGasto(fila as FilaGasto));
+}
+
+/** Total en centavos de los gastos de un mes (YYYY-MM). */
+export async function totalGastosDelMes(mes: string): Promise<number> {
+  const db = await getDb();
+  const resultado = await db.execute(
+    "SELECT COALESCE(SUM(monto_centavos), 0) AS total FROM gastos WHERE substr(fecha, 1, 7) = ?",
+    [mes],
+  );
+  return Number((resultado.rows[0] as FilaGasto).total);
+}
+
 export interface DatosNuevoGasto {
   fecha: string; // YYYY-MM-DD
   categoria: CategoriaGasto;

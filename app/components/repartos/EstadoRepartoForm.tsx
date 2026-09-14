@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { actualizarEstadoRepartoAction } from "@/app/actions/repartos";
 import { estadoInicial } from "@/app/actions/estado";
 import { ESTADOS_REPARTO, ETIQUETA_ESTADO_REPARTO } from "@/lib/estados";
@@ -19,10 +20,17 @@ export function EstadoRepartoForm({
   repartoId: number;
   estadoActual: EstadoReparto;
 }) {
+  const router = useRouter();
   const [estado, formAction, pending] = useActionState(
     actualizarEstadoRepartoAction,
     estadoInicial,
   );
+
+  useEffect(() => {
+    if (!pending && !estado.error) {
+      router.refresh();
+    }
+  }, [pending, estado.error, router]);
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-3">

@@ -133,7 +133,7 @@ export default async function DetalleRepartoPage({
             </p>
           )}
 
-          {!reparto.llevaRemito && reparto.items.length > 0 && (
+          {reparto.items.length > 0 && (
             <div className="mt-4 rounded-lg border border-zinc-200 p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Mercadería del reparto

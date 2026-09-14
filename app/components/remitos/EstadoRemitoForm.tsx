@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { actualizarEstadoRemitoAction } from "@/app/actions/remitos";
 import { estadoInicial } from "@/app/actions/estado";
 import { ESTADOS_REMITO, ETIQUETA_ESTADO_REMITO } from "@/lib/estados";
@@ -19,10 +20,17 @@ export function EstadoRemitoForm({
   remitoId: number;
   estadoActual: EstadoRemito;
 }) {
+  const router = useRouter();
   const [estado, formAction, pending] = useActionState(
     actualizarEstadoRemitoAction,
     estadoInicial,
   );
+
+  useEffect(() => {
+    if (!pending && !estado.error) {
+      router.refresh();
+    }
+  }, [pending, estado.error, router]);
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-3">

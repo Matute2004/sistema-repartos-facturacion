@@ -50,6 +50,38 @@ function itemsDelFormulario(formData: FormData): Array<{
     pesosACentavos(String(valor)),
   );
 
+  return itemsDesdeCampos(descripciones, cantidades, precios);
+}
+
+/** Reconstruye la mercadería directa del reparto (campos `reparto_item_*`). */
+function itemsRepartoDelFormulario(formData: FormData): Array<{
+  descripcion: string;
+  cantidad: number;
+  precioUnitarioCentavos: number;
+}> {
+  const descripciones = formData
+    .getAll("reparto_item_descripcion")
+    .map((valor) => String(valor).trim());
+  const cantidades = formData
+    .getAll("reparto_item_cantidad")
+    .map((valor) => Number(String(valor).replace(",", ".")));
+  const precios = formData.getAll("reparto_item_precio").map((valor) =>
+    pesosACentavos(String(valor)),
+  );
+
+  return itemsDesdeCampos(descripciones, cantidades, precios);
+}
+
+/** Arma los items descartando las líneas sin descripción o con cantidad inválida. */
+function itemsDesdeCampos(
+  descripciones: string[],
+  cantidades: number[],
+  precios: number[],
+): Array<{
+  descripcion: string;
+  cantidad: number;
+  precioUnitarioCentavos: number;
+}> {
   const items: Array<{
     descripcion: string;
     cantidad: number;
@@ -127,9 +159,9 @@ export async function crearRepartoAction(
       observaciones: textoOpcional(formData, "observaciones"),
       llevaRemito,
       formaPago,
-      // Mercadería directa: varias líneas (descripción, cantidad y valor),
-      // solo cuando NO lleva remito. Usa los mismos campos que el remito.
-      itemsMercaderia: llevaRemito ? [] : itemsDelFormulario(formData),
+      // Mercadería directa: varias líneas (descripción, cantidad y valor).
+      // Se guarda siempre en reparto_items, incluso si el reparto lleva remito.
+      itemsMercaderia: itemsRepartoDelFormulario(formData),
     });
 
     // Si lleva remito, lo emitimos en el mismo alta y queda asociado al cliente.

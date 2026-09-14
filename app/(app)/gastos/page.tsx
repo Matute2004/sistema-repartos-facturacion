@@ -1,9 +1,13 @@
-import { listarGastos, totalGastos } from "@/lib/data/gastos";
+import { listarGastosDelMes, totalGastosDelMes } from "@/lib/data/gastos";
 import {
   CATEGORIAS_GASTO,
   ETIQUETA_CATEGORIA,
   formatFecha,
   formatPesos,
+  mesActualLocal,
+  mesLegible,
+  normalizarMes,
+  sumarMeses,
 } from "@/lib/types";
 import type { CategoriaGasto } from "@/lib/types";
 import {
@@ -15,6 +19,7 @@ import {
   Td,
   Th,
 } from "@/app/components/ui/display";
+import { ButtonLink } from "@/app/components/ui/form";
 import { GastoForm } from "@/app/components/gastos/GastoForm";
 import { GastoDeleteButton } from "@/app/components/gastos/GastoDeleteButton";
 
@@ -27,8 +32,21 @@ const tonoCategoria: Record<CategoriaGasto, "amber" | "sky" | "emerald" | "zinc"
   otros: "zinc",
 };
 
-export default async function GastosPage() {
-  const [gastos, total] = await Promise.all([listarGastos(), totalGastos()]);
+export default async function GastosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mes?: string }>;
+}) {
+  const { mes } = await searchParams;
+  const mesSeleccionado = normalizarMes(mes);
+  const esMesActual = mesSeleccionado === mesActualLocal();
+  const mesAnterior = sumarMeses(mesSeleccionado, -1);
+  const mesSiguiente = sumarMeses(mesSeleccionado, 1);
+
+  const [gastos, total] = await Promise.all([
+    listarGastosDelMes(mesSeleccionado),
+    totalGastosDelMes(mesSeleccionado),
+  ]);
 
   const porCategoria = CATEGORIAS_GASTO.map((categoria) => ({
     categoria,
@@ -41,10 +59,48 @@ export default async function GastosPage() {
     <div>
       <PageHeader
         title="Gastos operativos"
-        description={`${gastos.length} movimientos registrados · Total acumulado ${formatPesos(
-          total,
-        )}`}
+        description="Registrá gastos y consultalos mes a mes con las flechas del selector de período."
       />
+
+      {/* Selector de mes */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 shadow-sm">
+          <ButtonLink
+            href={`/gastos?mes=${mesAnterior}`}
+            variant="secondary"
+            className="px-3"
+            aria-label="Mes anterior"
+            title="Mes anterior"
+          >
+            ←
+          </ButtonLink>
+          <div className="w-52 text-center">
+            <p className="text-base font-bold capitalize leading-tight text-zinc-900">
+              {mesLegible(mesSeleccionado)}
+            </p>
+            <p className="text-xs text-zinc-500">
+              {gastos.length} movimiento{gastos.length === 1 ? "" : "s"} ·{" "}
+              {formatPesos(total)}
+            </p>
+          </div>
+          <ButtonLink
+            href={`/gastos?mes=${mesSiguiente}`}
+            variant="secondary"
+            className="px-3"
+            disabled={esMesActual}
+            aria-label="Mes siguiente"
+            title={esMesActual ? "Estás viendo el mes actual" : "Mes siguiente"}
+          >
+            →
+          </ButtonLink>
+        </div>
+
+        {!esMesActual && (
+          <ButtonLink href="/gastos" variant="ghost">
+            ← Volver al mes actual
+          </ButtonLink>
+        )}
+      </div>
 
       <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
         <div className="space-y-6">
@@ -74,11 +130,11 @@ export default async function GastosPage() {
           <Card>
             <CardHeader
               title="Movimientos"
-              description="Los más recientes primero, con total por categoría."
+              description={`Gastos de ${mesLegible(mesSeleccionado)}, los más recientes primero.`}
             />
             {gastos.length === 0 ? (
               <p className="px-5 py-10 text-center text-sm text-zinc-500">
-                Todavía no hay gastos registrados.
+                No hay gastos registrados en {mesLegible(mesSeleccionado)}.
               </p>
             ) : (
               <Table>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { eliminarGastoAction } from "@/app/actions/gastos";
 import { estadoInicial } from "@/app/actions/estado";
 import { Button, FormError } from "@/app/components/ui/form";
@@ -12,10 +13,17 @@ export function GastoDeleteButton({
   id: number;
   descripcion: string;
 }) {
+  const router = useRouter();
   const [estado, formAction, pending] = useActionState(
     eliminarGastoAction,
     estadoInicial,
   );
+
+  useEffect(() => {
+    if (!pending && !estado.error) {
+      router.refresh();
+    }
+  }, [pending, estado.error, router]);
 
   return (
     <form

@@ -98,7 +98,7 @@ export interface Reparto {
   observaciones: string | null;
   /** Indica si el reparto lleva remito (se emite al darlo de alta). */
   llevaRemito: boolean;
-  /** Ítems de la mercadería directa cuando NO lleva remito (puede ser uno o varios). */
+  /** Ítems de la mercadería directa del reparto (con o sin remito). */
   items: RepartoItem[];
   /**
    * Forma de pago elegida, o null si el reparto todavía no se cobró
@@ -109,7 +109,7 @@ export interface Reparto {
   cobrado: boolean;
   /**
    * Valor total en centavos: suma de los remitos asignados + la mercadería
-   * directa (cuando el reparto no lleva remito).
+   * directa del reparto.
    */
   valorCentavos: number;
   creadoEn: string;
@@ -237,4 +237,34 @@ export function fechaHoyLocal(): string {
   const offset = ahora.getTimezoneOffset();
   const local = new Date(ahora.getTime() - offset * 60_000);
   return local.toISOString().slice(0, 10);
+}
+
+// ----------------------------------------------------------------------------
+// Utilidades de meses (para listados por período, ej: gastos)
+// ----------------------------------------------------------------------------
+
+/** Devuelve el mes actual local en formato YYYY-MM. */
+export function mesActualLocal(): string {
+  return fechaHoyLocal().slice(0, 7);
+}
+
+/** Valida un mes YYYY-MM; devuelve el mes actual si el valor es inválido. */
+export function normalizarMes(valor: string | null | undefined): string {
+  return valor && /^\d{4}-\d{2}$/.test(valor) ? valor : mesActualLocal();
+}
+
+/** Suma o resta meses a un mes YYYY-MM y devuelve el mes resultado. */
+export function sumarMeses(mes: string, cantidad: number): string {
+  const [anio, numero] = mes.split("-").map(Number);
+  const fecha = new Date(anio, numero - 1 + cantidad, 1);
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Devuelve un mes YYYY-MM en formato legible es-AR, ej: "septiembre de 2026". */
+export function mesLegible(mes: string): string {
+  const [anio, numero] = mes.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-AR", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(anio, numero - 1, 1, 12));
 }
