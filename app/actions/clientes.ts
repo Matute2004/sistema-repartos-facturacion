@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction, EstadoImportacion } from "@/app/actions/estado";
 import { exigirAdmin } from "@/lib/auth";
@@ -74,6 +74,7 @@ export async function crearClienteAction(
 
   revalidatePath("/clientes");
   revalidatePath("/");
+  updateTag("clientes");
   redirect("/clientes");
 }
 
@@ -119,6 +120,7 @@ export async function actualizarClienteAction(
 
   revalidatePath("/clientes");
   revalidatePath("/");
+  updateTag("clientes");
   redirect("/clientes");
 }
 
@@ -146,6 +148,7 @@ export async function eliminarClienteAction(
 
   revalidatePath("/clientes");
   revalidatePath("/");
+  updateTag("clientes");
   redirect("/clientes");
 }
 
@@ -218,6 +221,7 @@ export async function importarClientesAction(
 
   revalidatePath("/clientes");
   revalidatePath("/");
+  updateTag("clientes");
 
   // Ir a la lista de clientes con un resumen en la URL. La página de /clientes
   // muestra el banner con los resultados de la importación.

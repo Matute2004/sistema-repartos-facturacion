@@ -6,6 +6,10 @@ import { LoginForm } from "@/app/components/auth/LoginForm";
 
 export const metadata = { title: "Ingresar" };
 
+// Lee la cookie de sesión para redirigir si ya hay una sesión activa: bloquea
+// el render en el server en vez de prerenderizar (fuera del alcance instant).
+export const instant = false;
+
 export default async function LoginPage() {
   const usuario = await obtenerUsuarioActual();
   if (usuario) redirect("/");

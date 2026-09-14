@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { listarRepartos } from "@/lib/data/repartos";
 import { formatFecha, formatPesos } from "@/lib/types";
 import Link from "next/link";
@@ -68,8 +69,22 @@ export default function RepartosPage() {
   );
 }
 
+/**
+ * Repartos consolidados (valor, remitos asociados), cacheados ~1 min para
+ * navegación instantánea entre apartados. Invalida al mutar repartos, remitos
+ * o clientes (los nombres de cliente se muestran en la tabla).
+ */
+async function cargarRepartos() {
+  "use cache";
+  cacheLife({ stale: 30, revalidate: 60 });
+  cacheTag("repartos");
+  cacheTag("remitos");
+  cacheTag("clientes");
+  return listarRepartos();
+}
+
 async function TablaRepartos() {
-  const repartos = await listarRepartos();
+  const repartos = await cargarRepartos();
   if (repartos.length === 0) {
     return (
       <p className="px-5 py-10 text-center text-sm text-zinc-500">

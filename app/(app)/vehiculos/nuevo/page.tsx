@@ -4,6 +4,9 @@ import { VehiculoForm } from "@/app/components/vehiculos/CamposVehiculo";
 
 export const metadata = { title: "Nuevo vehículo" };
 
+// Formulario puro bajo el layout (app) que lee cookies: bloquea en server.
+export const instant = false;
+
 export default function NuevoVehiculoPage() {
   return (
     <div>

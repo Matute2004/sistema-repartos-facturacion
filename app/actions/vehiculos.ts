@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction } from "@/app/actions/estado";
 import { exigirAdmin } from "@/lib/auth";
@@ -81,6 +81,7 @@ export async function crearVehiculoAction(
 
   revalidatePath("/vehiculos");
   revalidatePath("/");
+  updateTag("vehiculos");
   redirect("/vehiculos");
 }
 
@@ -112,6 +113,7 @@ export async function actualizarVehiculoAction(
   revalidatePath("/vehiculos");
   revalidatePath("/vehiculos/" + id);
   revalidatePath("/");
+  updateTag("vehiculos");
   redirect("/vehiculos");
 }
 
@@ -137,5 +139,6 @@ export async function eliminarVehiculoAction(
 
   revalidatePath("/vehiculos");
   revalidatePath("/");
+  updateTag("vehiculos");
   redirect("/vehiculos");
 }

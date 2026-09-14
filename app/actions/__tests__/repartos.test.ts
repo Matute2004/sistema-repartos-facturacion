@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   revalidatePath,
+  updateTag,
   redirect,
   exigirAdminMock,
   obtenerOCrearClientePorNombre,
@@ -18,6 +19,7 @@ const {
   actualizarFormaPagoReparto,
 } = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
+  updateTag: vi.fn(),
   redirect: vi.fn(),
   exigirAdminMock: vi.fn(),
   obtenerOCrearClientePorNombre: vi.fn(),
@@ -30,7 +32,7 @@ const {
 
 const SENAL_REDIRECT = "NEXT_REDIRECT";
 
-vi.mock("next/cache", () => ({ revalidatePath }));
+vi.mock("next/cache", () => ({ revalidatePath, updateTag }));
 vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/lib/auth", () => ({ exigirAdmin: exigirAdminMock }));
 vi.mock("@/lib/data/clientes", async (importOriginal) => {

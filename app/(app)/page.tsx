@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { connection } from "next/server";
+import { cacheLife, cacheTag } from "next/cache";
 import { getMetricasDashboard } from "@/lib/data/dashboard";
 import { fechaHoyLocal, formatPesos } from "@/lib/types";
 import { Card, PageHeader } from "@/app/components/ui/display";
@@ -40,41 +42,29 @@ const accesosRapidos = [
   },
 ];
 
-export default async function Home() {
-  const hoy = fechaHoyLocal();
-  const mesLegible = new Intl.DateTimeFormat("es-AR", {
-    month: "long",
-    year: "numeric",
-  }).format(new Date(`${hoy.slice(0, 8)}01T12:00:00`));
-  const diaLegible = new Intl.DateTimeFormat("es-AR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(new Date(`${hoy}T12:00:00`));
-
+export default function Home() {
   return (
     <div>
-      <PageHeader
-        title="Dashboard"
-        description={`Panorama del día · ${diaLegible}`}
-      />
-
-      {/* Las tarjetas de métricas streaman cuando terminan; el resto del
-          dashboard (accesos rápidos) aparece de inmediato. */}
+      {/* Fecha del día + métricas streaman juntas: dependen de la hora actual
+          (new Date) y de la base, así que van dentro de un Suspense. El resto
+          del dashboard (accesos rápidos) aparece del shell prerenderizado. */}
       <Suspense
         fallback={
-          <div className="grid animate-pulse gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i} className="h-28 p-5">
-                <div className="h-4 w-20 rounded bg-zinc-200" />
-                <div className="mt-3 h-7 w-24 rounded bg-zinc-100" />
-                <div className="mt-2 h-4 w-28 rounded bg-zinc-100" />
-              </Card>
-            ))}
-          </div>
+          <>
+            <PageHeader title="Dashboard" description="Panorama del día" />
+            <div className="grid animate-pulse gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Card key={i} className="h-28 p-5">
+                  <div className="h-4 w-20 rounded bg-zinc-200" />
+                  <div className="mt-3 h-7 w-24 rounded bg-zinc-100" />
+                  <div className="mt-2 h-4 w-28 rounded bg-zinc-100" />
+                </Card>
+              ))}
+            </div>
+          </>
         }
       >
-        <TarjetasMetricas mesLegible={mesLegible} />
+        <ContenidoDashboard />
       </Suspense>
 
       <div className="mt-8">
@@ -98,9 +88,54 @@ export default async function Home() {
   );
 }
 
+/** Encabezado con la fecha del día + tarjetas de métricas. Todo lo que
+ *  depende de la hora actual streama en request (no entra al prerender). */
+async function ContenidoDashboard() {
+  // Marca esta isla como dinámica por request: evita que el `new Date()` del
+  // encabezado se evalúe (y falle) durante el prerender del shell.
+  await connection();
+  const hoy = fechaHoyLocal();
+  const mesLegible = new Intl.DateTimeFormat("es-AR", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(`${hoy.slice(0, 8)}01T12:00:00`));
+  const diaLegible = new Intl.DateTimeFormat("es-AR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(new Date(`${hoy}T12:00:00`));
+
+  return (
+    <>
+      <PageHeader
+        title="Dashboard"
+        description={`Panorama del día · ${diaLegible}`}
+      />
+      <TarjetasMetricas mesLegible={mesLegible} />
+    </>
+  );
+}
+
+/** 
+ * Métricas consolidadas del dashboard: cacheadas ~1 min para que el prefetch
+ * de Next traiga el contenido ya resuelto antes del click. Se invalida con
+ * revalidateTag al mutar cualquier dominio (por eso lleva todos los tags).
+ */
+async function cargarMetricas() {
+  "use cache";
+  cacheLife({ stale: 30, revalidate: 60 });
+  cacheTag("dashboard");
+  cacheTag("clientes");
+  cacheTag("vehiculos");
+  cacheTag("gastos");
+  cacheTag("repartos");
+  cacheTag("remitos");
+  return getMetricasDashboard();
+}
+
 /** Tarjetas de métricas del dashboard (stream solo con la data). */
 async function TarjetasMetricas({ mesLegible }: { mesLegible: string }) {
-  const metricas = await getMetricasDashboard();
+  const metricas = await cargarMetricas();
 
   const tarjetas = [
     {

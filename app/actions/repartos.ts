@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction } from "@/app/actions/estado";
 import { exigirAdmin } from "@/lib/auth";
@@ -191,6 +191,9 @@ export async function crearRepartoAction(
   }
 
   revalidatePath("/repartos");
+  updateTag("repartos");
+  updateTag("remitos");
+  updateTag("clientes");
   redirect("/repartos");
 }
 
@@ -224,6 +227,9 @@ export async function actualizarFormaPagoRepartoAction(
 
   revalidatePath(`/repartos/${id}`);
   revalidatePath("/repartos");
+  updateTag("repartos");
+  updateTag("remitos");
+  updateTag("clientes");
   return { error: null };
 }
 
@@ -254,6 +260,9 @@ export async function actualizarEstadoRepartoAction(
 
   revalidatePath(`/repartos/${id}`);
   revalidatePath("/repartos");
+  updateTag("repartos");
+  updateTag("remitos");
+  updateTag("clientes");
   return { error: null };
 }
 
@@ -284,6 +293,9 @@ export async function asignarRemitosAction(
 
   revalidatePath(`/repartos/${repartoId}`);
   revalidatePath("/repartos");
+  updateTag("repartos");
+  updateTag("remitos");
+  updateTag("clientes");
   return { error: null };
 }
 
@@ -308,5 +320,8 @@ export async function eliminarRepartoAction(
   }
 
   revalidatePath("/repartos");
+  updateTag("repartos");
+  updateTag("remitos");
+  updateTag("clientes");
   redirect("/repartos");
 }

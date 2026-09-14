@@ -13,6 +13,9 @@ import { VehiculoDeleteButton } from "@/app/components/vehiculos/VehiculoDeleteB
 
 export const metadata = { title: "Detalle de vehículo" };
 
+// Lee el vehículo por id en el server (fuera de cache/stream).
+export const instant = false;
+
 export default async function DetalleVehiculoPage({
   params,
 }: {

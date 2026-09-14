@@ -17,6 +17,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Cache Components (PPR + navegación instantánea): habilita la directiva
+  // `use cache` en las páginas de los apartados. Con esto el router de Next
+  // prefetchea el contenido ya renderizado (no solo el esqueleto), de modo que
+  // al navegar rápido entre /clientes, /repartos, /gastos, etc. el cambio es
+  // instantáneo y no vuelve a consultar Turso en cada click. Requiere runtime
+  // Node.js (las páginas ya lo usan; el proxy de edge no se ve afectado).
+  cacheComponents: true,
   // La importación masiva de clientes (hasta 5000 filas) supera el límite de
   // 1 MB por defecto de las Server Actions. Lo subimos a un tope acotado; la
   // acción igual valida cantidad de filas y largo de campos del lado del server.

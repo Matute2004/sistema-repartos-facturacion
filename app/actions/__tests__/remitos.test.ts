@@ -5,18 +5,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * se enfocan en la lógica de la acción (validación + datos que delega).
  */
 
-const { revalidatePath, redirect, exigirAdminMock, crearRemito, proximoNumeroRemito } =
-  vi.hoisted(() => ({
-    revalidatePath: vi.fn(),
-    redirect: vi.fn(),
-    exigirAdminMock: vi.fn(),
-    crearRemito: vi.fn(),
-    proximoNumeroRemito: vi.fn(),
-  }));
+const {
+  revalidatePath,
+  updateTag,
+  redirect,
+  exigirAdminMock,
+  crearRemito,
+  proximoNumeroRemito,
+} = vi.hoisted(() => ({
+  revalidatePath: vi.fn(),
+  updateTag: vi.fn(),
+  redirect: vi.fn(),
+  exigirAdminMock: vi.fn(),
+  crearRemito: vi.fn(),
+  proximoNumeroRemito: vi.fn(),
+}));
 
 const SENAL_REDIRECT = "NEXT_REDIRECT";
 
-vi.mock("next/cache", () => ({ revalidatePath }));
+vi.mock("next/cache", () => ({ revalidatePath, updateTag }));
 vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/lib/auth", () => ({ exigirAdmin: exigirAdminMock }));
 vi.mock("@/lib/data/remitos", async (importOriginal) => {

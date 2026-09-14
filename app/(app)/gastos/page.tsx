@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { listarGastosDelMesConTotal } from "@/lib/data/gastos";
 import {
   CATEGORIAS_GASTO,
@@ -32,7 +34,32 @@ const tonoCategoria: Record<CategoriaGasto, "amber" | "sky" | "emerald" | "zinc"
   otros: "zinc",
 };
 
-export default async function GastosPage({
+/** Gastos del mes + total consolidado, cacheados ~1 min por mes consultado.
+ *  La clave de caché incluye `mes` (searchParams), así cada período se cachea
+ *  por separado. Invalida con revalidateTag al registrar/eliminar gastos. */
+async function cargarGastos(mes: string) {
+  "use cache";
+  cacheLife({ stale: 30, revalidate: 60 });
+  cacheTag("gastos");
+  return listarGastosDelMesConTotal(mes);
+}
+
+export default function GastosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mes?: string }>;
+}) {
+  return (
+    <Suspense fallback={<SkeletonGastos />}>
+      <ContenidoGastos searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+/** Render del mes completo. Lee `searchParams` acá (aislado en <Suspense>)
+ *  para que el shell de /gastos se pueda prerenderizar con Cache Components;
+ *  la data viene del cache de ~1 min (cargarGastos). */
+async function ContenidoGastos({
   searchParams,
 }: {
   searchParams: Promise<{ mes?: string }>;
@@ -43,9 +70,7 @@ export default async function GastosPage({
   const mesAnterior = sumarMeses(mesSeleccionado, -1);
   const mesSiguiente = sumarMeses(mesSeleccionado, 1);
 
-  const { gastos, totalCentavos: total } = await listarGastosDelMesConTotal(
-    mesSeleccionado,
-  );
+  const { gastos, totalCentavos: total } = await cargarGastos(mesSeleccionado);
 
   const porCategoria = CATEGORIAS_GASTO.map((categoria) => ({
     categoria,
@@ -189,6 +214,22 @@ export default async function GastosPage({
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Esqueleto del contenido de /gastos mientras streama el mes (y mientras el
+ *  router navega). Evita que el área de contenido quede en blanco. */
+function SkeletonGastos() {
+  return (
+    <div className="animate-pulse">
+      <div className="mb-6 h-14 w-full rounded-xl bg-zinc-200" />
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 rounded-xl bg-zinc-200" />
+        ))}
+      </div>
+      <div className="h-72 rounded-xl bg-zinc-200" />
     </div>
   );
 }

@@ -1,11 +1,13 @@
 import { obtenerUsuarioActual } from "@/lib/auth";
 import { obtenerRemitoCompleto } from "@/lib/data/remitos";
 
-export const dynamic = "force-dynamic";
-
 /**
  * Devuelve el detalle completo de un remito (remito + cliente + items) en JSON.
  * Lo consume el modal de remitos del listado de repartos.
+ *
+ * El route handler no lleva `dynamic = "force-dynamic"`: con Cache Components
+ * ese config no se permite, y además sobra porque al leer la cookie de sesión
+ * (obtenerUsuarioActual) este GET ya es dinámico y no se cachea.
  */
 export async function GET(
   _request: Request,

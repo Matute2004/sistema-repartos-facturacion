@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction } from "@/app/actions/estado";
 import { exigirAdmin } from "@/lib/auth";
@@ -69,6 +69,8 @@ export async function crearGastoAction(
   }
 
   revalidatePath("/gastos");
+  revalidatePath("/");
+  updateTag("gastos");
   redirect("/gastos");
 }
 
@@ -93,5 +95,6 @@ export async function eliminarGastoAction(
   }
 
   revalidatePath("/gastos");
+  updateTag("gastos");
   return { error: null };
 }

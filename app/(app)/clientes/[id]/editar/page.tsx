@@ -7,6 +7,9 @@ import { ClienteDeleteButton } from "@/app/components/clientes/ClienteDeleteButt
 
 export const metadata = { title: "Editar cliente" };
 
+// Bloquea el render (lee el cliente por id en el server, fuera de cache).
+export const instant = false;
+
 export default async function EditarClientePage({
   params,
 }: {

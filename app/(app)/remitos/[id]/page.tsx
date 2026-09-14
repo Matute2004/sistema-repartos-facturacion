@@ -11,6 +11,9 @@ import { ETIQUETA_ESTADO_REMITO, TONE_ESTADO_REMITO } from "@/lib/estados";
 
 export const metadata = { title: "Remito" };
 
+// Lee el remito completo por id en el server (fuera de cache/stream).
+export const instant = false;
+
 export default async function DetalleRemitoPage({
   params,
 }: {

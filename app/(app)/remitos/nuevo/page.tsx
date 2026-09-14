@@ -7,6 +7,9 @@ import { proximoNumeroRemito } from "@/lib/data/remitos";
 
 export const metadata = { title: "Nuevo remito" };
 
+// Debe mostrar clientes y el próximo N° de remito frescos al abrir el form.
+export const instant = false;
+
 export default async function NuevoRemitoPage() {
   const [clientes, numeroProximo] = await Promise.all([
     listarClientesParaSeleccion(),

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { listarVehiculos } from "@/lib/data/vehiculos";
 import { ButtonLink } from "@/app/components/ui/form";
 import { PageHeader, Card } from "@/app/components/ui/display";
@@ -44,8 +45,17 @@ export default function VehiculosPage() {
   );
 }
 
+/** Flota cachead ~1 min para navegación instantánea. Invalida con revalidateTag
+ *  al crear/editar/eliminar vehículos. */
+async function cargarVehiculos() {
+  "use cache";
+  cacheLife({ stale: 30, revalidate: 60 });
+  cacheTag("vehiculos");
+  return listarVehiculos();
+}
+
 async function TablaVehiculos() {
-  const vehiculos = await listarVehiculos();
+  const vehiculos = await cargarVehiculos();
   if (vehiculos.length === 0) {
     return (
       <div className="px-5 py-12 text-center">

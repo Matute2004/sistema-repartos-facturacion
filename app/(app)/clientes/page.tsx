@@ -1,4 +1,5 @@
-import { Suspense, use } from "react";
+import { Suspense } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { listarClientesResumen } from "@/lib/data/clientes";
 import { ButtonLink } from "@/app/components/ui/form";
 import { PageHeader } from "@/app/components/ui/display";
@@ -14,11 +15,25 @@ interface SearchParams {
   errores?: string;
 }
 
-/** Banner verde que muestra el resultado de una importación de Excel. */
-function BannerImportacion({ params }: { params: { importado: number; sinNombre: number; errores: number } }) {
-  const partes: string[] = [`${params.importado} importado(s)`];
-  if (params.sinNombre > 0) partes.push(`${params.sinNombre} sin nombre`);
-  if (params.errores > 0) partes.push(`${params.errores} con error`);
+/**
+ * Banner verde que muestra el resultado de una importación de Excel.
+ * Lee `searchParams` aislado en un <Suspense>: así el resto del shell de la
+ * página puede prerenderizarse con Cache Components sin bloquearse.
+ */
+async function BannerImportacion({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+  const importado = params.importado ? Number(params.importado) : null;
+  if (importado == null) return null;
+
+  const sinNombre = params.sinNombre ? Number(params.sinNombre) : 0;
+  const errores = params.errores ? Number(params.errores) : 0;
+  const partes: string[] = [`${importado} importado(s)`];
+  if (sinNombre > 0) partes.push(`${sinNombre} sin nombre`);
+  if (errores > 0) partes.push(`${errores} con error`);
   return (
     <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
       <p className="font-medium">Importación completada</p>
@@ -34,9 +49,6 @@ export default function ClientesPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const params = use(searchParams);
-  const importado = params.importado ? Number(params.importado) : null;
-
   return (
     <div>
       <PageHeader
@@ -52,15 +64,9 @@ export default function ClientesPage({
         }
       />
 
-      {importado != null && (
-        <BannerImportacion
-          params={{
-            importado,
-            sinNombre: params.sinNombre ? Number(params.sinNombre) : 0,
-            errores: params.errores ? Number(params.errores) : 0,
-          }}
-        />
-      )}
+      <Suspense fallback={null}>
+        <BannerImportacion searchParams={searchParams} />
+      </Suspense>
 
       <Card>
         {/* La tabla consulta la deuda de todos los clientes: streama aparte
@@ -90,9 +96,23 @@ export default function ClientesPage({
   );
 }
 
+/**
+ * Clientes con su deuda acumulada, cacheados ~1 min para navegación
+ * instantánea. Se invalida con revalidateTag al crear/editar/importar clientes
+ * o al cambiar un reparto/remito que afecte la deuda (por eso esos tags).
+ */
+async function cargarClientes() {
+  "use cache";
+  cacheLife({ stale: 30, revalidate: 60 });
+  cacheTag("clientes");
+  cacheTag("repartos");
+  cacheTag("remitos");
+  return listarClientesResumen();
+}
+
 /** Carga los clientes con su deuda y arma la tabla con búsqueda y orden. */
 async function TablaClientes() {
-  const clientes = await listarClientesResumen();
+  const clientes = await cargarClientes();
   if (clientes.length === 0) {
     return (
       <div className="px-5 py-12 text-center">

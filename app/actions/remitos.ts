@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction } from "@/app/actions/estado";
 import { exigirAdmin } from "@/lib/auth";
@@ -105,6 +105,9 @@ export async function crearRemitoAction(
 
   revalidatePath("/remitos");
   revalidatePath("/repartos");
+  updateTag("remitos");
+  updateTag("repartos");
+  updateTag("clientes");
   redirect(`/remitos/${remitoId}`);
 }
 
@@ -135,6 +138,9 @@ export async function actualizarEstadoRemitoAction(
 
   revalidatePath(`/remitos/${id}`);
   revalidatePath("/remitos");
+  updateTag("remitos");
+  updateTag("repartos");
+  updateTag("clientes");
   return { error: null };
 }
 
@@ -159,5 +165,8 @@ export async function eliminarRemitoAction(
   }
 
   revalidatePath("/remitos");
+  updateTag("remitos");
+  updateTag("repartos");
+  updateTag("clientes");
   redirect("/remitos");
 }

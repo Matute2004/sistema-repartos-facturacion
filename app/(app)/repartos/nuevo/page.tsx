@@ -6,6 +6,9 @@ import { listarClientesParaSeleccion } from "@/lib/data/clientes";
 
 export const metadata = { title: "Nuevo reparto" };
 
+// Debe mostrar remitos pendientes y clientes frescos al abrir el form.
+export const instant = false;
+
 export default async function NuevoRepartoPage() {
   const [remitosDisponibles, clientes] = await Promise.all([
     listarRemitosPendientesSinAsignar(),

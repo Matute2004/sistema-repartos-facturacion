@@ -22,6 +22,10 @@ import { RemitoModal } from "@/app/components/repartos/RemitoModal";
 
 export const metadata = { title: "Detalle de cliente" };
 
+// Lee datos de la base por id fuera de Suspense/cache: no aplica la
+// navegación "instantánea" de Cache Components. Bloquea el render como antes.
+export const instant = false;
+
 export default async function DetalleClientePage({
   params,
 }: {

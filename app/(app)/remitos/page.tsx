@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { listarRemitos } from "@/lib/data/remitos";
 import { formatFecha, formatPesos } from "@/lib/types";
 import Link from "next/link";
@@ -62,8 +63,20 @@ export default function RemitosPage() {
   );
 }
 
+/**
+ * Remitos listados (muestran el nombre del cliente), cacheados ~1 min para
+ * navegación instantánea. Invalida al mutar remitos o clientes.
+ */
+async function cargarRemitos() {
+  "use cache";
+  cacheLife({ stale: 30, revalidate: 60 });
+  cacheTag("remitos");
+  cacheTag("clientes");
+  return listarRemitos();
+}
+
 async function TablaRemitos() {
-  const remitos = await listarRemitos();
+  const remitos = await cargarRemitos();
   if (remitos.length === 0) {
     return (
       <p className="px-5 py-10 text-center text-sm text-zinc-500">

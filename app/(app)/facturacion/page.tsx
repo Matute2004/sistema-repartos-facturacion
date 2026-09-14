@@ -2,6 +2,10 @@ import { Card, PageHeader } from "@/app/components/ui/display";
 
 export const metadata = { title: "Facturación" };
 
+// Página estática bajo el layout (app) que lee cookies (sesión): bloquea el
+// render en vez de intentar prerenderizar el shell en el build.
+export const instant = false;
+
 const enlacesAfip = [
   {
     url: "https://auth.afip.gob.ar/sitioexterno/",

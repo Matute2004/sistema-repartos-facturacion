@@ -5,6 +5,10 @@ import { CambiarPasswordForm } from "@/app/components/auth/CambiarPasswordForm";
 
 export const metadata = { title: "Mi cuenta" };
 
+// La página lee la sesión (cookies) directamente: bloquea el render en vez
+// de prerendizarla en el build.
+export const instant = false;
+
 export default async function CuentaPage() {
   const usuario = await obtenerUsuarioActual();
   // Si no hay sesión, el layout `(app)` ya redirige a /login.

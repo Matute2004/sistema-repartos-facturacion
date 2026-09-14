@@ -28,6 +28,9 @@ import {
 
 export const metadata = { title: "Reparto" };
 
+// Lee el reparto por id + remitos en el server (fuera de cache/stream).
+export const instant = false;
+
 export default async function DetalleRepartoPage({
   params,
 }: {

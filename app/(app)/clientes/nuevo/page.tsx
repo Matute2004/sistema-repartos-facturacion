@@ -4,6 +4,9 @@ import { ClienteForm } from "@/app/components/clientes/CamposCliente";
 
 export const metadata = { title: "Nuevo cliente" };
 
+// Formulario puro bajo el layout (app) que lee cookies: bloquea en server.
+export const instant = false;
+
 export default function NuevoClientePage() {
   return (
     <div>

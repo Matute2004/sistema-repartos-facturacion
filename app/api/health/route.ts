@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { getDb } from "@/lib/db";
 
 /**
@@ -5,6 +6,10 @@ import { getDb } from "@/lib/db";
  * GET /api/health
  */
 export async function GET() {
+  // Forzar que la ruta sea dinámica: sin esto Next la prerenderiza en el
+  // build y ejecuta la consulta a Turso innecesariamente (falla al cancelarse).
+  await headers();
+
   try {
     const db = await getDb();
     const result = await db.execute("SELECT 1 AS ok");
