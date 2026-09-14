@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ohana Comisiones — Sistema de repartos y facturación
 
-## Getting Started
+Sistema de gestión para un comercio: **clientes, repartos (hojas de ruta),
+remitos con detalle de mercadería, vehículos (kilómetros y services), gastos
+operativos y facturación**. Con login por usuario y sesión firmada.
 
-First, run the development server:
+Stack: **Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS v4**,
+base de datos **SQLite local (desarrollo) / Turso (libSQL) en producción**.
+
+## Requisitos
+
+- Node.js 20+ (el proyecto usa `--env-file-if-exists`, disponible desde Node 20.6)
+
+## Puesta en marcha (local)
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run db:migrate   # crea el esquema en local.db y siembra Matute / OhanaTeam
+npm run dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Credenciales iniciales (por defecto, la contraseña es el mismo nombre):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Usuario    | Rol |
+|------------|-----|
+| `Matute`   | admin |
+| `OhanaTeam`| admin |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+> En producción cambialas desde el menú **Cuenta → Cambiar contraseña**.
 
-## Learn More
+## Variables de entorno
 
-To learn more about Next.js, take a look at the following resources:
+Copiá `.env.example` a `.env.local` y completá:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Descripción |
+|----------|-------------|
+| `TURSO_DATABASE_URLL` | URL de la base remota Turso (`libsql://…`). Si está vacía, cae a SQLite local. |
+| `TURSO_AUTH_TOKENN` | Token de Turso (nombres históricos con doble letra, usalos igual en Vercel). |
+| `SESSION_SECRET` | Secreto para firmar las cookies de sesión. Generalo con `openssl rand -hex 32`. |
+| `LOCAL_DB_FILE` | (opcional) Ruta de la SQLite local. Solo para tests/desarrollo avanzado. |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Scripts
 
-## Deploy on Vercel
+| Comando | Qué hace |
+|---------|----------|
+| `npm run dev` | Servidor de desarrollo |
+| `npm run build` / `npm run start` | Build y servidor de producción |
+| `npm run lint` | ESLint |
+| `npm test` | Suite de tests (Vitest) |
+| `npm run db:migrate` | Migración idempotente del esquema + seed de usuarios |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Arquitectura
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `lib/schema.sql` + `lib/migrate.ts` / `scripts/migrate.mjs`: esquema y migraciones idempotentes.
+- `lib/data/*`: acceso a la base de datos (SQL parametrizado, mapeo tipado).
+- `app/actions/*`: Server Actions con validación y **guard `exigirAdmin()`**
+  (todo el sistema opera con un único rol: admin).
+- `app/components/*`: componentes de UI (formularios, tablas, botones).
+- `proxy.ts`: autenticación por cookie firmada (HMAC-SHA256) en el borde.
+
+Convenciones del dominio:
+
+- El dinero se guarda **siempre en centavos** (`INTEGER`) para evitar
+  errores de punto flotante. Ver `lib/types.ts`.
+- Los estados de reparto/remito están centralizados en `lib/estados.ts`.
+- Las fechas se guardan como `TEXT` en formato `YYYY-MM-DD`.
+
+## Tests
+
+```bash
+npm test            # una pasada
+npm run test:watch  # modo watch
+```
+
+Cubren: utilidades de dinero/fechas, passwords (scrypt), sesión (HMAC),
+lógica de Server Actions (validación, redirecciones) y flujos de la capa de
+datos sobre una SQLite temporal aislada (`LOCAL_DB_FILE`).
+
+## Deploy (Vercel)
+
+Configurá en el proyecto: `TURSO_DATABASE_URLL`, `TURSO_AUTH_TOKENN` y
+`SESSION_SECRET` (mismos nombres que en `.env.local`). El build es estándar
+de Next.js. La migración corre con `npm run db:migrate` contra la base remota
+(o se puede invocar `migrate()` desde un Route Handler si se quiere auto-migrar
+en el primer deploy).

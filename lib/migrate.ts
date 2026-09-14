@@ -31,6 +31,10 @@ export async function migrate(): Promise<void> {
       throw error;
     }
   }
+
+  // Rol único: el sistema opera solo con administradores. Si quedaron
+  // usuarios con rol 'operador' de versiones previas, se los promueve.
+  await db.execute("UPDATE usuarios SET rol = 'admin' WHERE rol = 'operador'");
 }
 
 /** Devuelve la lista de tablas existentes (auxiliar de diagnóstico). */

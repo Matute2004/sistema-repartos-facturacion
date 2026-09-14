@@ -60,6 +60,10 @@ try {
     }
   }
 
+  // Rol único: el sistema opera solo con administradores. Si quedaron
+  // usuarios con rol 'operador' de versiones previas, se los promueve.
+  await db.execute("UPDATE usuarios SET rol = 'admin' WHERE rol = 'operador'");
+
   const resultado = await db.execute(
     "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
   );

@@ -153,7 +153,12 @@ export function formatPesos(centavos: number): string {
   }).format(centavos / 100);
 }
 
-/** Convierte un string de pesos (ej: "123,45" o "123.45") a centavos. */
+/**
+ * Convierte un string de pesos a centavos. Formato esperado argentino:
+ * la coma es el separador decimal y los puntos actúan como separador de
+ * miles (se eliminan), ej: "1.234,56" -> 123456.
+ * Devuelve 0 si el valor está vacío, es inválido o negativo.
+ */
 export function pesosACentavos(valor: string): number {
   const normalizado = valor.replace(/\./g, "").replace(",", ".");
   const numero = Number.parseFloat(normalizado);

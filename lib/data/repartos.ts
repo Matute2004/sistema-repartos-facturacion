@@ -69,15 +69,20 @@ export async function actualizarEstadoReparto(
   await db.execute("UPDATE repartos SET estado = ? WHERE id = ?", [estado, id]);
 }
 
-/** Devuelve un reparto por id (o null si no existe). */
+/** Devuelve un reparto por id (o null si no existe) con el valor total de los
+ *  remitos asignados (suma de items). */
 export async function obtenerReparto(id: number): Promise<Reparto | null> {
   const db = await getDb();
   const resultado = await db.execute(
-    `SELECT id, fecha, estado,
-            chofer AS enviado_por, vehiculo AS recibido_por,
-            notas AS observaciones, creado_en, 0 AS valor_centavos
-     FROM repartos
-     WHERE id = ?`,
+    `SELECT rp.id, rp.fecha, rp.estado,
+            rp.chofer AS enviado_por, rp.vehiculo AS recibido_por,
+            rp.notas AS observaciones, rp.creado_en,
+            COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0) AS valor_centavos
+     FROM repartos rp
+     LEFT JOIN remitos rt ON rt.reparto_id = rp.id
+     LEFT JOIN remito_items ri ON ri.remito_id = rt.id
+     WHERE rp.id = ?
+     GROUP BY rp.id`,
     [id],
   );
   if (resultado.rows.length === 0) return null;

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction } from "@/app/actions/estado";
+import { exigirAdmin } from "@/lib/auth";
 import { ESTADOS_REPARTO } from "@/lib/estados";
 import {
   actualizarEstadoReparto,
@@ -32,6 +33,7 @@ export async function crearRepartoAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const fecha = texto(formData, "fecha");
   if (!fecha) {
     return { error: "La fecha del reparto es obligatoria." };
@@ -70,6 +72,7 @@ export async function actualizarEstadoRepartoAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const id = Number(formData.get("id"));
   const nuevoEstado = texto(formData, "estado");
 
@@ -99,6 +102,7 @@ export async function asignarRemitosAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const repartoId = Number(formData.get("reparto_id"));
   if (!Number.isInteger(repartoId) || repartoId <= 0) {
     return { error: "Reparto inválido." };
@@ -128,6 +132,7 @@ export async function eliminarRepartoAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id) || id <= 0) {
     return { error: "Reparto inválido." };

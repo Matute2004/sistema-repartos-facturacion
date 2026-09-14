@@ -1,18 +1,16 @@
-import { redirect } from "next/navigation";
-import { obtenerUsuarioActual } from "@/lib/auth";
+import { exigirAdmin } from "@/lib/auth";
 import { NavBar } from "@/app/components/layout/NavBar";
 
 /**
  * Layout del área autenticada. Toda página dentro de `app/(app)/` pasa por
- * este layout que garantiza sesión activa y muestra el sidebar.
+ * este layout que garantiza sesión activa con rol admin y muestra el sidebar.
  */
 export default async function LayoutEsqueleto({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const usuario = await obtenerUsuarioActual();
-  if (!usuario) redirect("/login");
+  const usuario = await exigirAdmin();
 
   return (
     <div className="lg:grid lg:grid-cols-[240px_1fr]">

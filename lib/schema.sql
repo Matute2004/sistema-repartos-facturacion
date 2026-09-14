@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   nombre          TEXT NOT NULL UNIQUE,          -- nombre visible (ej: Matute)
   password_hash   TEXT NOT NULL,                 -- scrypt: salt:hash
-  rol             TEXT NOT NULL DEFAULT 'operador'
+  rol             TEXT NOT NULL DEFAULT 'admin'
                   CHECK (rol IN ('admin', 'operador')),
   creado_en       TEXT NOT NULL DEFAULT (datetime('now')),
   actualizado_en  TEXT NOT NULL DEFAULT (datetime('now'))

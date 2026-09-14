@@ -28,12 +28,27 @@ export async function obtenerUsuarioActual(): Promise<UsuarioSesion | null> {
 }
 
 /**
- * Garantiza que haya una sesión activa; si no, redirige al login.
+ * Exige sesión activa; si no, redirige al login.
  * Pensado para Server Components/redirect() desde acciones.
  */
 export async function exigirUsuario(): Promise<UsuarioSesion> {
   const usuario = await obtenerUsuarioActual();
   if (!usuario) {
+    redirect("/login");
+  }
+  return usuario;
+}
+
+/**
+ * Exige sesión activa Y rol administrador; si no, redirige al login.
+ *
+ * El sistema opera con un único rol (admin) que puede hacer todo. Se mantiene
+ * la columna `rol` en la DB para compatibilidad, pero cualquier usuario sin
+ * rol admin no puede entrar ni ejecutar Server Actions.
+ */
+export async function exigirAdmin(): Promise<UsuarioSesion> {
+  const usuario = await exigirUsuario();
+  if (usuario.rol !== "admin") {
     redirect("/login");
   }
   return usuario;

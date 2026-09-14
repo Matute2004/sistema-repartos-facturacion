@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { EstadoAction, EstadoCuenta } from "@/app/actions/estado";
-import { obtenerUsuarioActual } from "@/lib/auth";
+import { exigirAdmin } from "@/lib/auth";
 import { obtenerUsuarioPorNombre, actualizarPassword } from "@/lib/data/usuarios";
 import type { Usuario } from "@/lib/types";
 import {
@@ -100,10 +100,7 @@ export async function cambiarPasswordAction(
   _estado: EstadoCuenta,
   formData: FormData,
 ): Promise<EstadoCuenta> {
-  const usuario = await obtenerUsuarioActual();
-  if (!usuario) {
-    redirect("/login");
-  }
+  const usuario = await exigirAdmin();
 
   const anterior = texto(formData, "password_anterior");
   const nueva = texto(formData, "password_nueva");

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction } from "@/app/actions/estado";
+import { exigirAdmin } from "@/lib/auth";
 import {
   actualizarVehiculo,
   crearVehiculo,
@@ -65,6 +66,7 @@ export async function crearVehiculoAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const { error, datos } = leerDatosVehiculo(formData);
   if (error || !datos) return { error };
 
@@ -89,6 +91,7 @@ export async function actualizarVehiculoAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id) || id <= 0) {
     return { error: "Vehículo inválido." };
@@ -119,6 +122,7 @@ export async function eliminarVehiculoAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id) || id <= 0) {
     return { error: "Vehículo inválido." };

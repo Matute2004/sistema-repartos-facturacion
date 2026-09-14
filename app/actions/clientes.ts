@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction, EstadoImportacion } from "@/app/actions/estado";
+import { exigirAdmin } from "@/lib/auth";
 import {
   actualizarCliente,
   crearCliente,
@@ -37,6 +38,7 @@ export async function crearClienteAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const nombre = texto(formData, "nombre");
   if (!nombre) {
     return { error: "El nombre del cliente es obligatorio." };
@@ -76,6 +78,7 @@ export async function actualizarClienteAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const id = Number(formData.get("id"));
   const nombre = texto(formData, "nombre");
   const numero = leerNumero(formData);
@@ -120,6 +123,7 @@ export async function eliminarClienteAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id) || id <= 0) {
     return { error: "Cliente inválido." };
@@ -157,6 +161,7 @@ export async function importarClientesAction(
   _estado: EstadoImportacion,
   formData: FormData,
 ): Promise<EstadoImportacion> {
+  await exigirAdmin();
   const filasJson = String(formData.get("filas") ?? "").trim();
   if (!filasJson) {
     return { error: "No se recibieron filas para importar.", resumen: null };

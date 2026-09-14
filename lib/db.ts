@@ -55,7 +55,11 @@ export async function getDb(): Promise<Client> {
   }
 
   // Solo desarrollo sin credenciales: base SQLite local embebida.
+  // LOCAL_DB_FILE permite apuntar a otro archivo (los tests de vitest lo usan
+  // para aislarse de la base real).
   const { createClient: createLocalClient } = await import("@libsql/client");
-  cached = createLocalClient({ url: "file:local.db" }) as Client;
+  cached = createLocalClient({
+    url: valorEnv("LOCAL_DB_FILE") ?? "file:local.db",
+  }) as Client;
   return cached;
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction } from "@/app/actions/estado";
+import { exigirAdmin } from "@/lib/auth";
 import { ESTADOS_REMITO } from "@/lib/estados";
 import {
   actualizarEstadoRemito,
@@ -69,6 +70,7 @@ export async function crearRemitoAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const clienteId = Number(formData.get("cliente_id"));
   const fecha = texto(formData, "fecha");
 
@@ -113,6 +115,7 @@ export async function actualizarEstadoRemitoAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const id = Number(formData.get("id"));
   const nuevoEstado = texto(formData, "estado");
 
@@ -142,6 +145,7 @@ export async function eliminarRemitoAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id) || id <= 0) {
     return { error: "Remito inválido." };

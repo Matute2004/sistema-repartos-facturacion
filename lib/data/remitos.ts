@@ -42,13 +42,19 @@ export async function listarRemitos(): Promise<RemitoConCliente[]> {
   });
 }
 
-/** Devuelve un remito por id (o null si no existe). */
+/** Devuelve un remito por id (o null si no existe) con su valor total.
+ *  La suma se calcula igual que en `listarRemitos` para que el detalle nunca
+ *  muestre $0 por error de mapeo. */
 export async function obtenerRemito(id: number): Promise<Remito | null> {
   const db = await getDb();
   const resultado = await db.execute(
-    `SELECT id, numero, cliente_id, reparto_id, fecha, estado, observaciones, creado_en
-     FROM remitos
-     WHERE id = ?`,
+    `SELECT r.id, r.numero, r.cliente_id, r.reparto_id, r.fecha, r.estado,
+            r.observaciones, r.creado_en,
+            COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0) AS valor_centavos
+     FROM remitos r
+     LEFT JOIN remito_items ri ON ri.remito_id = r.id
+     WHERE r.id = ?
+     GROUP BY r.id`,
     [id],
   );
   if (resultado.rows.length === 0) return null;

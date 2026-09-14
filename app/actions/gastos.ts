@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction } from "@/app/actions/estado";
+import { exigirAdmin } from "@/lib/auth";
 import {
   crearGasto,
   eliminarGasto as eliminarGastoDb,
@@ -33,6 +34,7 @@ export async function crearGastoAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const fecha = texto(formData, "fecha");
   const categoria = texto(formData, "categoria") as CategoriaGasto;
   const descripcion = texto(formData, "descripcion");
@@ -77,6 +79,7 @@ export async function eliminarGastoAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
+  await exigirAdmin();
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id) || id <= 0) {
     return { error: "Gasto inválido." };
