@@ -98,16 +98,15 @@ export interface Reparto {
   observaciones: string | null;
   /** Indica si el reparto lleva remito (se emite al darlo de alta). */
   llevaRemito: boolean;
-  /** Unidad de la mercadería directa (ej: "caja") cuando no lleva remito. */
-  unidad: string | null;
-  /** Cantidad de la mercadería directa cuando no lleva remito. */
-  cantidad: number | null;
-  /** Descripción de la mercadería directa cuando no lleva remito. */
-  itemDescripcion: string | null;
-  /** Precio unitario (centavos) de la mercadería directa. */
-  itemPrecioUnitarioCentavos: number | null;
-  /** Forma de pago elegida para el reparto. */
-  formaPago: FormaPago;
+  /** Ítems de la mercadería directa cuando NO lleva remito (puede ser uno o varios). */
+  items: RepartoItem[];
+  /**
+   * Forma de pago elegida, o null si el reparto todavía no se cobró
+   * (columna `forma_pago` más `cobrado` en la DB).
+   */
+  formaPago: FormaPago | null;
+  /** True si el reparto ya se cobró (se eligió una forma de pago). */
+  cobrado: boolean;
   /**
    * Valor total en centavos: suma de los remitos asignados + la mercadería
    * directa (cuando el reparto no lleva remito).
@@ -116,6 +115,15 @@ export interface Reparto {
   creadoEn: string;
   /** Remitos asociados (solo id + número), poblados en `listarRepartos`. */
   remitos: RepartoRemitoLigero[];
+}
+
+/** Ítem de la mercadería directa de un reparto (una línea de `reparto_items`). */
+export interface RepartoItem {
+  id: number;
+  repartoId: number;
+  descripcion: string;
+  cantidad: number;
+  precioUnitarioCentavos: number;
 }
 
 export type EstadoRemito = "pendiente" | "entregado" | "cancelado";

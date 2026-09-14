@@ -23,6 +23,7 @@ import {
   asignarRemitosAReparto,
   crearReparto,
   listarRepartos,
+  listarRepartosDelCliente,
   obtenerReparto,
 } from "@/lib/data/repartos";
 import {
@@ -48,6 +49,7 @@ beforeEach(async () => {
   // Orden inverso de dependencias de FK.
   await db.execute("DELETE FROM remito_items");
   await db.execute("DELETE FROM remitos");
+  await db.execute("DELETE FROM reparto_items");
   await db.execute("DELETE FROM repartos");
   await db.execute("DELETE FROM gastos");
   await db.execute("DELETE FROM vehiculos");
@@ -234,17 +236,25 @@ describe("flujo repartos y asignación de remitos", () => {
     expect(await listarRemitosDelReparto(reparto2)).toHaveLength(0);
   });
 
-  it("crea un reparto con cliente y mercadería directa (sin remito) y calcula su valor", async () => {
+  it("crea un reparto con cliente y mercadería directa (varias líneas) y calcula su valor", async () => {
     const clienteId = await crearClienteBasico(7);
     const repartoId = await crearReparto({
       fecha: "2026-09-13",
       clienteId,
       enviadoPor: "Cliente 7",
       llevaRemito: false,
-      unidad: "caja",
-      cantidad: 3,
-      itemDescripcion: "Caja de agua",
-      itemPrecioUnitarioCentavos: 2500,
+      itemsMercaderia: [
+        {
+          descripcion: "Caja de agua",
+          cantidad: 3,
+          precioUnitarioCentavos: 2500,
+        },
+        {
+          descripcion: "Rueda 175/70",
+          cantidad: 2,
+          precioUnitarioCentavos: 15000,
+        },
+      ],
       formaPago: "cuenta_corriente",
     });
 
@@ -252,12 +262,38 @@ describe("flujo repartos y asignación de remitos", () => {
     expect(reparto?.clienteId).toBe(clienteId);
     expect(reparto?.clienteNombre).toBe("Cliente 7");
     expect(reparto?.llevaRemito).toBe(false);
-    expect(reparto?.unidad).toBe("caja");
-    expect(reparto?.cantidad).toBe(3);
-    expect(reparto?.itemPrecioUnitarioCentavos).toBe(2500);
+    expect(reparto?.items).toHaveLength(2);
+    expect(reparto?.items[0]).toMatchObject({
+      descripcion: "Caja de agua",
+      cantidad: 3,
+      precioUnitarioCentavos: 2500,
+    });
     expect(reparto?.formaPago).toBe("cuenta_corriente");
-    // 3 cajas x $2.500 = $7.500 (mercadería directa suma al valor del reparto)
-    expect(reparto?.valorCentavos).toBe(7500);
+    expect(reparto?.cobrado).toBe(true);
+    // 3 × $2.500 + 2 × $15.000 = $37.500 (la mercadería directa suma al valor)
+    expect(reparto?.valorCentavos).toBe(37500);
+  });
+
+  it("lista los repartos de un cliente para su ficha (con items y total)", async () => {
+    const clienteA = await crearClienteBasico(9);
+    const clienteB = await crearClienteBasico(10);
+
+    const r1 = await crearReparto({
+      fecha: "2026-09-15",
+      clienteId: clienteA,
+      itemsMercaderia: [
+        { descripcion: "Caja", cantidad: 1, precioUnitarioCentavos: 1000 },
+      ],
+    });
+    await crearReparto({ fecha: "2026-09-16", clienteId: clienteB });
+
+    const repartosA = await listarRepartosDelCliente(clienteA);
+    expect(repartosA).toHaveLength(1);
+    expect(repartosA[0].id).toBe(r1);
+    expect(repartosA[0].items).toHaveLength(1);
+    expect(repartosA[0].items[0].descripcion).toBe("Caja");
+    expect(repartosA[0].valorCentavos).toBe(1000);
+    expect(repartosA[0].formaPago).toBeNull();
   });
 
   it("crea un remito ya asignado a un reparto y lo lista en listarRepartos().remitos", async () => {
@@ -279,12 +315,22 @@ describe("flujo repartos y asignación de remitos", () => {
     expect(reparto?.valorCentavos).toBe(100);
   });
 
-  it("actualiza la forma de pago de un reparto", async () => {
+  it("actualiza la forma de pago de un reparto (por cobrar hasta que se elige)", async () => {
     const repartoId = await crearReparto({ fecha: "2026-09-14" });
-    expect((await obtenerReparto(repartoId))?.formaPago).toBe("contado");
+    const sinCobrar = await obtenerReparto(repartoId);
+    expect(sinCobrar?.formaPago).toBeNull();
+    expect(sinCobrar?.cobrado).toBe(false);
 
     await actualizarFormaPagoReparto(repartoId, "cheque");
-    expect((await obtenerReparto(repartoId))?.formaPago).toBe("cheque");
+    const cobrado = await obtenerReparto(repartoId);
+    expect(cobrado?.formaPago).toBe("cheque");
+    expect(cobrado?.cobrado).toBe(true);
+
+    // La opción "Por cobrar" (null) vuelve a dejar el reparto sin cobrar.
+    await actualizarFormaPagoReparto(repartoId, null);
+    const porCobrar = await obtenerReparto(repartoId);
+    expect(porCobrar?.formaPago).toBeNull();
+    expect(porCobrar?.cobrado).toBe(false);
   });
 });
 

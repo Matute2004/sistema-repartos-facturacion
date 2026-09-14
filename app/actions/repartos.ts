@@ -34,16 +34,6 @@ function esFormaPago(valor: string): valor is FormaPago {
   return (FORMAS_PAGO as readonly string[]).includes(valor);
 }
 
-/** Cantidad parseada con coma decimal (ej: "1,5" -> 1.5). Usa `porDefecto` si está vacía o es inválida. */
-function cantidadPositiva(
-  formData: FormData,
-  campo: string,
-  porDefecto: number,
-): number {
-  const valor = Number(String(formData.get(campo) ?? "").replace(",", "."));
-  return Number.isFinite(valor) && valor > 0 ? valor : porDefecto;
-}
-
 /** Reconstruye los items del remito a partir de los campos repetidos del formulario. */
 function itemsDelFormulario(formData: FormData): Array<{
   descripcion: string;
@@ -100,8 +90,12 @@ export async function crearRepartoAction(
   }
 
   const llevaRemito = formData.get("lleva_remito") !== null;
-  const formaPagoValor = texto(formData, "forma_pago") || "contado";
-  if (!esFormaPago(formaPagoValor)) {
+  // Dejá la forma de pago vacía si el reparto todavía no se cobró: recién se
+  // elige cuando efectivamente se cobra.
+  const formaPagoValor = texto(formData, "forma_pago");
+  const formaPago: FormaPago | null =
+    formaPagoValor && esFormaPago(formaPagoValor) ? formaPagoValor : null;
+  if (formaPagoValor && !esFormaPago(formaPagoValor)) {
     return { error: "Forma de pago inválida." };
   }
 
@@ -115,9 +109,14 @@ export async function crearRepartoAction(
   }
 
   try {
-    // "Envía" puede ser un cliente existente (desplegable) o un nombre nuevo:
-    // en ese caso se crea el cliente con el resto de los campos vacíos.
-    const clienteId = await obtenerOCrearClientePorNombre(nombreEnvia);
+    // "Envía" se elige con el buscador de clientes (trae `cliente_id`) o se
+    // escribe un nombre nuevo: en ese caso el cliente se crea con el resto de
+    // los campos vacíos.
+    const clienteIdEnviado = Number(formData.get("cliente_id"));
+    const clienteId =
+      Number.isInteger(clienteIdEnviado) && clienteIdEnviado > 0
+        ? clienteIdEnviado
+        : await obtenerOCrearClientePorNombre(nombreEnvia);
 
     const repartoId = await crearReparto({
       fecha,
@@ -127,16 +126,10 @@ export async function crearRepartoAction(
       recibidoPor: textoOpcional(formData, "recibido_por"),
       observaciones: textoOpcional(formData, "observaciones"),
       llevaRemito,
-      formaPago: formaPagoValor,
-      // Mercadería directa (solo cuando NO lleva remito).
-      unidad: llevaRemito ? undefined : textoOpcional(formData, "unidad") ?? "caja",
-      cantidad: llevaRemito ? undefined : cantidadPositiva(formData, "cantidad", 1),
-      itemDescripcion: llevaRemito
-        ? undefined
-        : textoOpcional(formData, "item_descripcion"),
-      itemPrecioUnitarioCentavos: llevaRemito
-        ? undefined
-        : Math.max(0, pesosACentavos(texto(formData, "item_precio"))),
+      formaPago,
+      // Mercadería directa: varias líneas (descripción, cantidad y valor),
+      // solo cuando NO lleva remito. Usa los mismos campos que el remito.
+      itemsMercaderia: llevaRemito ? [] : itemsDelFormulario(formData),
     });
 
     // Si lleva remito, lo emitimos en el mismo alta y queda asociado al cliente.
@@ -178,16 +171,19 @@ export async function actualizarFormaPagoRepartoAction(
 ): Promise<EstadoAction> {
   await exigirAdmin();
   const id = Number(formData.get("id"));
-  const formaPago = texto(formData, "forma_pago");
+  const formaPagoValor = texto(formData, "forma_pago");
 
   if (!Number.isInteger(id) || id <= 0) {
     return { error: "Reparto inválido." };
   }
-  if (!esFormaPago(formaPago)) {
+  if (formaPagoValor && !esFormaPago(formaPagoValor)) {
     return { error: "Forma de pago inválida." };
   }
 
   try {
+    // La opción vacía ("Por cobrar") vuelve a dejar el reparto sin cobrar.
+    const formaPago: FormaPago | null =
+      formaPagoValor && esFormaPago(formaPagoValor) ? formaPagoValor : null;
     await actualizarFormaPagoReparto(id, formaPago);
   } catch (error) {
     console.error("[repartos] error al actualizar forma de pago:", error);

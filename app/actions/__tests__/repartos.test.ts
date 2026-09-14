@@ -75,16 +75,18 @@ describe("crearRepartoAction", () => {
     expect(resultado.error).toContain("fecha");
   });
 
-  it("crea el cliente al vuelo y guarda la mercadería directa cuando NO lleva remito", async () => {
+  it("crea el cliente al vuelo y guarda la mercadería directa (varias líneas) cuando NO lleva remito", async () => {
     const formData = new FormData();
     formData.set("fecha", "2026-09-13");
     formData.set("enviado_por", "Comercio Nuevo");
     formData.set("recibido_por", "Chofer");
     formData.set("forma_pago", "debito");
-    formData.set("cantidad", "2");
-    formData.set("unidad", "caja");
-    formData.set("item_descripcion", "Caja de galletitas");
-    formData.set("item_precio", "1.200,00");
+    formData.append("item_descripcion", "Caja de galletitas");
+    formData.append("item_cantidad", "2");
+    formData.append("item_precio", "1.200,00");
+    formData.append("item_descripcion", "Rueda 175/70");
+    formData.append("item_cantidad", "4");
+    formData.append("item_precio", "45.000,00");
 
     await expect(crearRepartoAction(estadoInicial, formData)).rejects.toThrow(
       SENAL_REDIRECT,
@@ -100,14 +102,55 @@ describe("crearRepartoAction", () => {
       observaciones: undefined,
       llevaRemito: false,
       formaPago: "debito",
-      unidad: "caja",
-      cantidad: 2,
-      itemDescripcion: "Caja de galletitas",
-      itemPrecioUnitarioCentavos: 120000,
+      itemsMercaderia: [
+        {
+          descripcion: "Caja de galletitas",
+          cantidad: 2,
+          precioUnitarioCentavos: 120000,
+        },
+        {
+          descripcion: "Rueda 175/70",
+          cantidad: 4,
+          precioUnitarioCentavos: 4500000,
+        },
+      ],
     });
     // Sin remito: no emite ningún remito.
     expect(crearRemito).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith("/repartos");
+  });
+
+  it("deja la forma de pago vacía (por cobrar) cuando no se elige", async () => {
+    const formData = new FormData();
+    formData.set("fecha", "2026-09-13");
+    formData.set("enviado_por", "Cliente Nuevo");
+    formData.append("item_descripcion", "Caja surtida");
+    formData.append("item_cantidad", "1");
+    formData.append("item_precio", "500");
+
+    await expect(crearRepartoAction(estadoInicial, formData)).rejects.toThrow(
+      SENAL_REDIRECT,
+    );
+
+    expect(crearReparto).toHaveBeenCalledWith(
+      expect.objectContaining({ formaPago: null }),
+    );
+  });
+
+  it("usa el cliente elegido con la lupa (cliente_id) sin crearlo de nuevo", async () => {
+    const formData = new FormData();
+    formData.set("fecha", "2026-09-13");
+    formData.set("enviado_por", "Cliente Existente");
+    formData.set("cliente_id", "15");
+
+    await expect(crearRepartoAction(estadoInicial, formData)).rejects.toThrow(
+      SENAL_REDIRECT,
+    );
+
+    expect(obtenerOCrearClientePorNombre).not.toHaveBeenCalled();
+    expect(crearReparto).toHaveBeenCalledWith(
+      expect.objectContaining({ clienteId: 15 }),
+    );
   });
 
   it("emite un remito asociado al cliente y al reparto cuando lleva remito", async () => {
@@ -131,9 +174,8 @@ describe("crearRepartoAction", () => {
     expect(crearReparto).toHaveBeenCalledWith(
       expect.objectContaining({
         llevaRemito: true,
-        unidad: undefined,
-        cantidad: undefined,
-        itemDescripcion: undefined,
+        itemsMercaderia: [],
+        formaPago: "contado",
       }),
     );
     expect(crearRemito).toHaveBeenCalledWith({
@@ -196,6 +238,20 @@ describe("actualizarFormaPagoRepartoAction", () => {
     const resultado = await actualizarFormaPagoRepartoAction(estadoInicial, formData);
     expect(resultado.error).toBeNull();
     expect(actualizarFormaPagoReparto).toHaveBeenCalledWith(3, "cheque");
+    expect(revalidatePath).toHaveBeenCalledWith("/repartos");
+  });
+
+  it("la opción «Por cobrar» deja el reparto sin cobrar", async () => {
+    const formData = new FormData();
+    formData.set("id", "3");
+    formData.set("forma_pago", "");
+
+    const resultado = await actualizarFormaPagoRepartoAction(
+      estadoInicial,
+      formData,
+    );
+    expect(resultado.error).toBeNull();
+    expect(actualizarFormaPagoReparto).toHaveBeenCalledWith(3, null);
     expect(revalidatePath).toHaveBeenCalledWith("/repartos");
   });
 

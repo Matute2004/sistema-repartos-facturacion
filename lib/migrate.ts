@@ -42,20 +42,44 @@ export async function migrate(): Promise<void> {
   // `numero` (N° visible de cliente) se carga a mano al dar de alta.
   await agregarColumna(db, "clientes", "numero", "INTEGER");
 
-  // El reparto ahora se vincula a un cliente (campo "Envía"), puede llevar
-  // remito o una mercadería directa, y registra la forma de pago.
+  // El reparto se vincula a un cliente (campo "Envía"), puede llevar remito
+  // o una mercadería directa, y registra la forma de pago. `cobrado` indica si
+  // la mercadería ya se cobró: mientras es 0, la forma de pago queda vacía.
   await agregarColumna(db, "repartos", "cliente_id", "INTEGER REFERENCES clientes(id) ON DELETE SET NULL");
   await agregarColumna(db, "repartos", "lleva_remito", "INTEGER NOT NULL DEFAULT 0");
-  await agregarColumna(db, "repartos", "unidad", "TEXT");
-  await agregarColumna(db, "repartos", "cantidad", "REAL");
-  await agregarColumna(db, "repartos", "item_descripcion", "TEXT");
-  await agregarColumna(db, "repartos", "item_precio_unitario_centavos", "INTEGER NOT NULL DEFAULT 0");
   await agregarColumna(db, "repartos", "forma_pago", "TEXT NOT NULL DEFAULT 'contado' CHECK (forma_pago IN ('contado', 'cuenta_corriente', 'debito', 'cheque'))");
+  await agregarColumna(db, "repartos", "cobrado", "INTEGER NOT NULL DEFAULT 0");
 
   // Índice sobre la nueva columna: se crea acá (y no en schema.sql) porque las
   // bases existentes todavía no tienen la columna cuando se ejecuta el schema.
   await db.execute(
     "CREATE INDEX IF NOT EXISTS idx_repartos_cliente ON repartos(cliente_id)",
+  );
+
+  // La mercadería directa pasó de ser una sola línea en `repartos` a varias
+  // líneas en `reparto_items`. Si la tabla vieja todavía tiene las columnas
+  // (de migraciones anteriores), se vuelcan a la tabla nueva una sola vez.
+  try {
+    await db.execute(
+      `INSERT INTO reparto_items (reparto_id, descripcion, cantidad, precio_unitario_centavos)
+       SELECT r.id, COALESCE(NULLIF(TRIM(r.item_descripcion), ''), 'Carga'),
+              COALESCE(r.cantidad, 1), COALESCE(r.item_precio_unitario_centavos, 0)
+       FROM repartos r
+       WHERE r.lleva_remito = 0 AND r.cantidad IS NOT NULL AND r.cantidad > 0
+         AND NOT EXISTS (SELECT 1 FROM reparto_items ri WHERE ri.reparto_id = r.id)`,
+    );
+  } catch (error) {
+    // Bases nuevas no tienen las columnas viejas; no hay nada que migrar.
+    const mensaje = String(error);
+    if (!mensaje.includes("no such column") && !mensaje.includes("unknown column")) {
+      throw error;
+    }
+  }
+
+  // Los repartos que ya tenían una forma de pago elegida (distinta de la que
+  // se preseleccionaba por defecto) se consideran cobrados.
+  await db.execute(
+    "UPDATE repartos SET cobrado = 1 WHERE forma_pago IN ('cuenta_corriente', 'debito', 'cheque')",
   );
 
   // Rol único: el sistema opera solo con administradores. Si quedaron

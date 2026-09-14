@@ -106,9 +106,16 @@ export default async function DetalleRepartoPage({
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Forma de pago
               </p>
-              <p className="mt-1 text-sm font-medium text-zinc-900">
-                {ETIQUETA_FORMA_PAGO[reparto.formaPago]}
-              </p>
+              {reparto.formaPago ? (
+                <p className="mt-1 text-sm font-medium text-zinc-900">
+                  {ETIQUETA_FORMA_PAGO[reparto.formaPago]}
+                  {!reparto.cobrado && (
+                    <span className="ml-1 text-xs text-zinc-400">(sin cobrar)</span>
+                  )}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-zinc-400">Por cobrar</p>
+              )}
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
@@ -126,18 +133,26 @@ export default async function DetalleRepartoPage({
             </p>
           )}
 
-          {!reparto.llevaRemito && reparto.cantidad != null && (
+          {!reparto.llevaRemito && reparto.items.length > 0 && (
             <div className="mt-4 rounded-lg border border-zinc-200 p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Mercadería directa del reparto
+                Mercadería del reparto
               </p>
-              <p className="mt-1 text-sm text-zinc-900">
-                {reparto.itemDescripcion ?? "Carga"}
-                {" · "}
-                {reparto.cantidad} {reparto.unidad ?? "caja"}
-                {" · "}
-                {formatPesos(reparto.itemPrecioUnitarioCentavos ?? 0)} c/u
-              </p>
+              <ul className="mt-1 divide-y divide-zinc-100">
+                {reparto.items.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex items-baseline justify-between gap-4 py-2 text-sm"
+                  >
+                    <span className="font-medium text-zinc-900">
+                      {item.cantidad} × {item.descripcion}
+                    </span>
+                    <span className="whitespace-nowrap text-zinc-700">
+                      {formatPesos(item.cantidad * item.precioUnitarioCentavos)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { crearRepartoAction } from "@/app/actions/repartos";
 import { estadoInicial } from "@/app/actions/estado";
 import {
@@ -47,9 +47,34 @@ export function RepartoForm({
   const [items, setItems] = useState<FilaItem[]>([
     { key: 0, descripcion: "", cantidad: "1", precio: "" },
   ]);
-  const [cantidadDirecta, setCantidadDirecta] = useState("1");
-  const [unidadDirecta, setUnidadDirecta] = useState("caja");
-  const [valorDirecto, setValorDirecto] = useState("");
+
+  // Buscador de cliente (campo "Envía"): la lupa filtra los clientes
+  // existentes y permite crear uno nuevo al vuelo con el nombre escrito.
+  const [busqueda, setBusqueda] = useState("");
+  const [clienteElegidoId, setClienteElegidoId] = useState<number | null>(null);
+  const [listaAbierta, setListaAbierta] = useState(false);
+
+  const clientesFiltrados = useMemo(() => {
+    const termino = busqueda.trim().toLowerCase();
+    const lista = termino
+      ? clientes.filter((cliente) =>
+          cliente.nombre.toLowerCase().includes(termino),
+        )
+      : clientes;
+    return lista.slice(0, 8);
+  }, [busqueda, clientes]);
+
+  function elegirCliente(cliente: ClienteSeleccion) {
+    setBusqueda(cliente.nombre);
+    setClienteElegidoId(cliente.id);
+    setListaAbierta(false);
+  }
+
+  function elegirNuevoCliente() {
+    // El texto queda como está: la server action crea el cliente con ese nombre.
+    setClienteElegidoId(null);
+    setListaAbierta(false);
+  }
 
   function actualizarFila(key: number, campo: keyof FilaItem, valor: string) {
     setItems((prev) =>
@@ -73,7 +98,6 @@ export function RepartoForm({
     (total, fila) => total + Number(fila.cantidad) * pesosACentavos(fila.precio),
     0,
   );
-  const totalDirectoCentavos = Number(cantidadDirecta) * pesosACentavos(valorDirecto);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -91,23 +115,97 @@ export function RepartoForm({
           />
         </Field>
         <Field
-          label="Envía"
-          htmlFor="enviado_por"
+          label="Cliente (Envía)"
+          htmlFor="cliente_buscar"
           required
-          hint="Buscá un cliente existente en el desplegable, o escribí un nombre nuevo: el cliente se creará solo con ese dato."
+          hint="Buscá un cliente existente con la lupa, o escribí un nombre nuevo: el cliente se creará solo con ese dato."
         >
-          <Input
-            id="enviado_por"
-            name="enviado_por"
-            list="lista-clientes"
-            placeholder="Ej: Juan Pérez"
-            disabled={pending}
-          />
-          <datalist id="lista-clientes">
-            {clientes.map((cliente) => (
-              <option key={cliente.id} value={cliente.nombre} />
-            ))}
-          </datalist>
+          <div className="relative">
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-zinc-400">
+              <svg
+                className="size-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
+                />
+              </svg>
+            </span>
+            <Input
+              id="cliente_buscar"
+              name="enviado_por"
+              type="text"
+              autoComplete="off"
+              role="combobox"
+              aria-expanded={listaAbierta}
+              aria-controls="lista-clientes-buscador"
+              placeholder="Buscar cliente por nombre…"
+              className="pl-10"
+              value={busqueda}
+              onChange={(evento) => {
+                setBusqueda(evento.target.value);
+                // Al editar el nombre ya no sabemos a qué cliente apuntaba.
+                setClienteElegidoId(null);
+                setListaAbierta(true);
+              }}
+              onFocus={() => setListaAbierta(true)}
+              onBlur={() => setTimeout(() => setListaAbierta(false), 150)}
+              disabled={pending}
+            />
+            <input type="hidden" name="cliente_id" value={clienteElegidoId ?? ""} />
+            {listaAbierta && (
+              <ul
+                id="lista-clientes-buscador"
+                className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-zinc-200 bg-white py-1 shadow-lg"
+              >
+                {clientesFiltrados.map((cliente) => (
+                  <li key={cliente.id}>
+                    <button
+                      type="button"
+                      onMouseDown={(evento) => evento.preventDefault()}
+                      onTouchStart={(evento) => evento.preventDefault()}
+                      onClick={() => elegirCliente(cliente)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-800 hover:bg-emerald-50 hover:text-emerald-800"
+                    >
+                      <svg
+                        className="size-4 shrink-0 text-zinc-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a7.5 7.5 0 0115 0"
+                        />
+                      </svg>
+                      {cliente.nombre}
+                    </button>
+                  </li>
+                ))}
+                {clientesFiltrados.length === 0 && (
+                  <li>
+                    <button
+                      type="button"
+                      onMouseDown={(evento) => evento.preventDefault()}
+                      onTouchStart={(evento) => evento.preventDefault()}
+                      onClick={elegirNuevoCliente}
+                      className="flex w-full items-center gap-2 border-t border-zinc-100 px-3 py-2 text-left text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+                    >
+                      + Crear cliente «{busqueda.trim()}»
+                    </button>
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
         </Field>
         <Field label="Recibe" htmlFor="recibido_por">
           <Input
@@ -117,13 +215,19 @@ export function RepartoForm({
             disabled={pending}
           />
         </Field>
-        <Field label="Forma de pago" htmlFor="forma_pago">
+        <Field
+          label="Forma de pago"
+          htmlFor="forma_pago"
+          hint="Dejalo en «Por cobrar» si todavía no te lo pagan. Recién se elige cuando se cobra."
+        >
           <Select
             id="forma_pago"
             name="forma_pago"
-            defaultValue="contado"
+            defaultValue=""
             disabled={pending}
+            className="text-zinc-500"
           >
+            <option value="">— Por cobrar</option>
             {FORMAS_PAGO.map((forma) => (
               <option key={forma} value={forma}>
                 {ETIQUETA_FORMA_PAGO[forma]}
@@ -150,7 +254,7 @@ export function RepartoForm({
         <p className="mt-1 pl-7 text-xs text-zinc-500">
           Si lo tildás, emitís el remito acá mismo y queda asociado al cliente
           del campo “Envía”. Si no, cargás la mercadería directa del reparto
-          (cantidad, unidad y valor).
+          (una o varias líneas con descripción, cantidad y valor).
         </p>
       </div>
 
@@ -264,61 +368,101 @@ export function RepartoForm({
         </div>
       ) : (
         <div className="space-y-3 rounded-lg border border-zinc-200 p-3">
-          <p className="text-sm font-medium text-zinc-700">Mercadería del reparto</p>
-          <div className="grid grid-cols-12 items-end gap-2">
-            <div className="col-span-12 sm:col-span-6">
-              <Field label="Descripción" htmlFor="item_descripcion">
-                <Input
-                  id="item_descripcion"
-                  name="item_descripcion"
-                  placeholder="Ej: Caja surtida"
-                  disabled={pending}
-                />
-              </Field>
-            </div>
-            <div className="col-span-4 sm:col-span-2">
-              <Field label="Cantidad" htmlFor="cantidad">
-                <Input
-                  id="cantidad"
-                  name="cantidad"
-                  inputMode="decimal"
-                  placeholder="1"
-                  value={cantidadDirecta}
-                  onChange={(e) => setCantidadDirecta(e.target.value)}
-                  disabled={pending}
-                />
-              </Field>
-            </div>
-            <div className="col-span-4 sm:col-span-2">
-              <Field label="Unidad" htmlFor="unidad">
-                <Input
-                  id="unidad"
-                  name="unidad"
-                  placeholder="caja"
-                  value={unidadDirecta}
-                  onChange={(e) => setUnidadDirecta(e.target.value)}
-                  disabled={pending}
-                />
-              </Field>
-            </div>
-            <div className="col-span-4 sm:col-span-2">
-              <Field label="Valor" htmlFor="item_precio">
-                <Input
-                  id="item_precio"
-                  name="item_precio"
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  value={valorDirecto}
-                  onChange={(e) => setValorDirecto(e.target.value)}
-                  disabled={pending}
-                />
-              </Field>
-            </div>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium text-zinc-700">
+              Mercadería del reparto
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={agregarFila}
+              disabled={pending}
+            >
+              + Agregar ítem
+            </Button>
           </div>
+          <p className="text-xs text-zinc-500">
+            Cargá una línea por ítem: una caja, una rueda, un teléfono… El valor
+            se suma automáticamente.
+          </p>
+
+          {items.length === 0 && (
+            <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-400">
+              Todavía no hay ítems. Agregá al menos una línea.
+            </p>
+          )}
+
+          {items.map((fila, indice) => (
+            <div
+              key={fila.key}
+              className="grid grid-cols-12 items-end gap-2 rounded-lg border border-zinc-200 p-3"
+            >
+              <div className="col-span-12 sm:col-span-6">
+                <Field
+                  label={`Descripción ${indice + 1}`}
+                  htmlFor={`merc-desc-${fila.key}`}
+                >
+                  <Input
+                    id={`merc-desc-${fila.key}`}
+                    name="item_descripcion"
+                    placeholder="Ej: Caja de botellas"
+                    value={fila.descripcion}
+                    onChange={(e) =>
+                      actualizarFila(fila.key, "descripcion", e.target.value)
+                    }
+                    disabled={pending}
+                  />
+                </Field>
+              </div>
+              <div className="col-span-6 sm:col-span-2">
+                <Field label="Cantidad" htmlFor={`merc-cant-${fila.key}`}>
+                  <Input
+                    id={`merc-cant-${fila.key}`}
+                    name="item_cantidad"
+                    inputMode="decimal"
+                    placeholder="1"
+                    value={fila.cantidad}
+                    onChange={(e) =>
+                      actualizarFila(fila.key, "cantidad", e.target.value)
+                    }
+                    disabled={pending}
+                  />
+                </Field>
+              </div>
+              <div className="col-span-6 sm:col-span-3">
+                <Field label="Valor" htmlFor={`merc-prec-${fila.key}`}>
+                  <Input
+                    id={`merc-prec-${fila.key}`}
+                    name="item_precio"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={fila.precio}
+                    onChange={(e) =>
+                      actualizarFila(fila.key, "precio", e.target.value)
+                    }
+                    disabled={pending}
+                  />
+                </Field>
+              </div>
+              <div className="col-span-12 flex items-center gap-2 sm:col-span-1 sm:justify-end">
+                <Button
+                  type="button"
+                  variant="danger"
+                  className="px-2.5 py-2"
+                  aria-label={`Quitar ítem ${indice + 1}`}
+                  onClick={() => quitarFila(fila.key)}
+                  disabled={pending}
+                >
+                  ✕
+                </Button>
+              </div>
+            </div>
+          ))}
+
           <div className="flex items-center justify-end gap-3 pt-1 text-sm">
             <span className="text-zinc-500">Valor del reparto</span>
             <span className="text-lg font-bold text-zinc-900">
-              {formatPesos(totalDirectoCentavos)}
+              {formatPesos(totalItemsCentavos)}
             </span>
           </div>
         </div>

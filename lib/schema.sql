@@ -33,17 +33,27 @@ CREATE TABLE IF NOT EXISTS repartos (
               CHECK (estado IN ('pendiente', 'en_curso', 'completado', 'cancelado')),
   cliente_id  INTEGER REFERENCES clientes(id) ON DELETE SET NULL,
   lleva_remito INTEGER NOT NULL DEFAULT 0,
-  unidad      TEXT,                            -- unidad del ítem directo (ej: "caja")
-  cantidad    REAL,                            -- cantidad del ítem directo
-  item_descripcion TEXT,                       -- descripción del ítem directo
-  item_precio_unitario_centavos INTEGER NOT NULL DEFAULT 0,
   forma_pago  TEXT NOT NULL DEFAULT 'contado'
               CHECK (forma_pago IN ('contado', 'cuenta_corriente', 'debito', 'cheque')),
+  -- Cobre = 0: el reparto todavía no se cobró (la forma de pago queda sin usar).
+  cobrado     INTEGER NOT NULL DEFAULT 0,
   chofer      TEXT,
   vehiculo    TEXT,
   notas       TEXT,
   creado_en   TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Items de la mercadería directa del reparto (cuando NO lleva remito).
+-- Un reparto puede tener varias líneas: una caja, una rueda, un teléfono, etc.
+CREATE TABLE IF NOT EXISTS reparto_items (
+  id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+  reparto_id              INTEGER NOT NULL REFERENCES repartos(id) ON DELETE CASCADE,
+  descripcion             TEXT NOT NULL,
+  cantidad                REAL NOT NULL DEFAULT 1 CHECK (cantidad > 0),
+  precio_unitario_centavos INTEGER NOT NULL DEFAULT 0 CHECK (precio_unitario_centavos >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reparto_items_reparto ON reparto_items(reparto_id);
 
 -- ----------------------------------------------------------------------------
 -- Remitos

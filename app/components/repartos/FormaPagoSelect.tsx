@@ -8,15 +8,17 @@ import type { FormaPago } from "@/lib/types";
 import { Select } from "@/app/components/ui/form";
 
 /**
- * Desplegable de forma de pago en la tabla de repartos. Al elegir una opción
- * se guarda al instante (submit automático de la server action).
+ * Desplegable de forma de pago en las tablas de repartos. Al elegir una opción
+ * se guarda al instante (submit automático de la server action). La opción
+ * "Por cobrar" (vacía) deja el reparto sin cobrar; recién al cobrarlo se elige
+ * una forma de pago.
  */
 export function FormaPagoSelect({
   repartoId,
   valorActual,
 }: {
   repartoId: number;
-  valorActual: FormaPago;
+  valorActual: FormaPago | null;
 }) {
   const [estado, formAction, pending] = useActionState(
     actualizarFormaPagoRepartoAction,
@@ -28,14 +30,20 @@ export function FormaPagoSelect({
       <input type="hidden" name="id" value={repartoId} />
       <Select
         name="forma_pago"
-        value={valorActual}
+        value={valorActual ?? ""}
         disabled={pending}
         onChange={(evento) => {
           if (!pending) evento.currentTarget.form?.requestSubmit();
         }}
-        className="w-auto min-w-36 cursor-pointer py-1.5"
+        className={`w-auto min-w-36 cursor-pointer py-1.5 ${valorActual ? "" : "text-zinc-400"}`}
         aria-label="Forma de pago del reparto"
+        title={
+          valorActual
+            ? "Cambiar la forma de pago"
+            : "Reparto sin cobrar: tocá para elegir la forma de pago"
+        }
       >
+        <option value="">— Por cobrar</option>
         {FORMAS_PAGO.map((forma) => (
           <option key={forma} value={forma}>
             {ETIQUETA_FORMA_PAGO[forma]}
