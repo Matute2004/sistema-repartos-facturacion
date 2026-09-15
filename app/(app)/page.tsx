@@ -101,7 +101,13 @@ async function TarjetasMetricas({
 }) {
   const metricas = await cargarMetricas();
 
-  const tarjetas = [
+  const tarjetas: Array<{
+    label: string;
+    valor: string;
+    detalle?: string;
+    href: string;
+    subDetalles?: Array<{ etiqueta: string; valor: string }>;
+  }> = [
     {
       label: "Clientes registrados",
       valor: String(metricas.clientes),
@@ -121,12 +127,19 @@ async function TarjetasMetricas({
       href: "/gastos",
     },
     {
-      label: "Repartos de hoy",
+      label: `Repartos de hoy · ${diaCorto}`,
       valor: String(metricas.repartosHoy),
-      detalle: `${diaCorto} · ${metricas.repartosHoyPendientes} ${
-        metricas.repartosHoyPendientes === 1 ? "pendiente" : "pendientes"
-      }`,
       href: "/repartos",
+      subDetalles: [
+        {
+          etiqueta: "Pendientes de hoy",
+          valor: String(metricas.repartosHoyPendientes),
+        },
+        {
+          etiqueta: "Pendientes en total",
+          valor: String(metricas.repartosPendientesTotal),
+        },
+      ],
     },
     {
       label: "Remitos pendientes de hoy",
@@ -153,7 +166,22 @@ async function TarjetasMetricas({
             <p className="mt-2 text-2xl font-bold tracking-tight text-zinc-900">
               {tarjeta.valor}
             </p>
-            <p className="mt-1 text-xs text-zinc-400">{tarjeta.detalle}</p>
+            {tarjeta.subDetalles ? (
+              <div className="-mx-5 mt-4 flex divide-x divide-zinc-200 border-t border-zinc-100 px-0">
+                {tarjeta.subDetalles.map((detalle) => (
+                  <div key={detalle.etiqueta} className="flex-1 px-4 py-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+                      {detalle.etiqueta}
+                    </p>
+                    <p className="mt-0.5 text-lg font-semibold text-zinc-900">
+                      {detalle.valor}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 text-xs text-zinc-400">{tarjeta.detalle}</p>
+            )}
           </Card>
         </Link>
       ))}

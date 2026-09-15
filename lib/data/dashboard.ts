@@ -7,6 +7,7 @@ export interface MetricasDashboard {
   gastosMesCentavos: number;
   repartosHoy: number;
   repartosHoyPendientes: number;
+  repartosPendientesTotal: number;
   remitosHoyPendientes: number;
   remitosPorAsignar: number;
 }
@@ -38,6 +39,10 @@ export async function getMetricasDashboard(): Promise<MetricasDashboard> {
       args: [hoy],
     },
     {
+      // Pendientes en total: acumula también los de fechas anteriores.
+      sql: "SELECT COUNT(*) AS total FROM repartos WHERE estado IN ('pendiente', 'en_curso')",
+    },
+    {
       sql: "SELECT COUNT(*) AS total FROM remitos WHERE fecha = ? AND estado = 'pendiente'",
       args: [hoy],
     },
@@ -53,7 +58,8 @@ export async function getMetricasDashboard(): Promise<MetricasDashboard> {
     gastosMesCentavos: numero(resultados[2].rows[0]),
     repartosHoy: numero(resultados[3].rows[0]),
     repartosHoyPendientes: numero(resultados[4].rows[0]),
-    remitosHoyPendientes: numero(resultados[5].rows[0]),
-    remitosPorAsignar: numero(resultados[6].rows[0]),
+    repartosPendientesTotal: numero(resultados[5].rows[0]),
+    remitosHoyPendientes: numero(resultados[6].rows[0]),
+    remitosPorAsignar: numero(resultados[7].rows[0]),
   };
 }

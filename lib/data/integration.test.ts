@@ -525,7 +525,7 @@ describe("flujo gastos", () => {
 });
 
 describe("métricas del dashboard", () => {
-  it("cuenta los repartos de hoy y los pendientes de hoy (zona Buenos Aires)", async () => {
+  it("cuenta repartos de hoy, pendientes de hoy y pendientes en total (acumula fechas anteriores)", async () => {
     const clienteId = await crearClienteBasico(15);
     const hoy = fechaHoyLocal();
 
@@ -535,11 +535,19 @@ describe("métricas del dashboard", () => {
     const enCurso = await crearReparto({ fecha: hoy, clienteId });
     await actualizarEstadoReparto(enCurso, "en_curso");
     await crearReparto({ fecha: hoy, clienteId });
-    // Fuera del día de hoy: no debe contar.
-    await crearReparto({ fecha: "2026-09-01", clienteId });
+
+    // Fechas anteriores: un pendiente suma al total, un completado no.
+    const anteriorCompletado = await crearReparto({
+      fecha: "2026-09-01",
+      clienteId,
+    });
+    await actualizarEstadoReparto(anteriorCompletado, "completado");
+    await crearReparto({ fecha: "2026-09-02", clienteId });
 
     const metricas = await getMetricasDashboard();
     expect(metricas.repartosHoy).toBe(3);
     expect(metricas.repartosHoyPendientes).toBe(2);
+    // en_curso + pendiente de hoy + pendiente del 02/09 = 3
+    expect(metricas.repartosPendientesTotal).toBe(3);
   });
 });
