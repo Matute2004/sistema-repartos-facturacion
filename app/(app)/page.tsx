@@ -4,50 +4,17 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { cacheLife, cacheTag } from "next/cache";
 import { getMetricasDashboard } from "@/lib/data/dashboard";
-import { fechaHoyLocal, formatPesos } from "@/lib/types";
+import { formatPesos, ZONA_HORARIA } from "@/lib/types";
 import { Card, PageHeader } from "@/app/components/ui/display";
 
 export const metadata: Metadata = { title: "Ohana Comisiones" };
 
-const accesosRapidos = [
-  {
-    href: "/clientes",
-    titulo: "Clientes",
-    descripcion: "Cargar o actualizar clientes",
-  },
-  {
-    href: "/repartos",
-    titulo: "Repartos",
-    descripcion: "Hojas de ruta del día",
-  },
-  {
-    href: "/remitos",
-    titulo: "Remitos",
-    descripcion: "Emitir y organizar remitos",
-  },
-  {
-    href: "/vehiculos",
-    titulo: "Vehículos",
-    descripcion: "Flota, kilómetros y services",
-  },
-  {
-    href: "/facturacion",
-    titulo: "Facturación",
-    descripcion: "Atajo a AFIP / facturación",
-  },
-  {
-    href: "/gastos",
-    titulo: "Gastos",
-    descripcion: "Registrar gastos operativos",
-  },
-];
-
 export default function Home() {
   return (
     <div>
-      {/* Fecha del día + métricas streaman juntas: dependen de la hora actual
-          (new Date) y de la base, así que van dentro de un Suspense. El resto
-          del dashboard (accesos rápidos) aparece del shell prerenderizado. */}
+      {/* La fecha del día (zona horaria de Buenos Aires) y las métricas dependen
+          de la hora actual y de la base, así que streaman dentro de un Suspense
+          y el shell se renderiza de inmediato. */}
       <Suspense
         fallback={
           <>
@@ -66,44 +33,35 @@ export default function Home() {
       >
         <ContenidoDashboard />
       </Suspense>
-
-      <div className="mt-8">
-        <h2 className="mb-3 text-base font-semibold text-zinc-900">
-          Accesos rápidos
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {accesosRapidos.map((acceso) => (
-            <Link key={acceso.href} href={acceso.href}>
-              <Card className="h-full p-4 transition-colors hover:border-emerald-300">
-                <p className="text-sm font-semibold text-zinc-900">
-                  {acceso.titulo}
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">{acceso.descripcion}</p>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
 
 /** Encabezado con la fecha del día + tarjetas de métricas. Todo lo que
- *  depende de la hora actual streama en request (no entra al prerender). */
+ *  depende de la hora actual streama en request (no entra al prerender).
+ *  Las fechas se calculan en la zona de Buenos Aires, sin depender del
+ *  reloj del servidor de hosting. */
 async function ContenidoDashboard() {
   // Marca esta isla como dinámica por request: evita que el `new Date()` del
   // encabezado se evalúe (y falle) durante el prerender del shell.
   await connection();
-  const hoy = fechaHoyLocal();
-  const mesLegible = new Intl.DateTimeFormat("es-AR", {
-    month: "long",
-    year: "numeric",
-  }).format(new Date(`${hoy.slice(0, 8)}01T12:00:00`));
+  const ahora = new Date();
   const diaLegible = new Intl.DateTimeFormat("es-AR", {
+    timeZone: ZONA_HORARIA,
     weekday: "long",
     day: "numeric",
     month: "long",
-  }).format(new Date(`${hoy}T12:00:00`));
+  }).format(ahora);
+  const diaCorto = new Intl.DateTimeFormat("es-AR", {
+    timeZone: ZONA_HORARIA,
+    day: "numeric",
+    month: "short",
+  }).format(ahora);
+  const mesLegible = new Intl.DateTimeFormat("es-AR", {
+    timeZone: ZONA_HORARIA,
+    month: "long",
+    year: "numeric",
+  }).format(ahora);
 
   return (
     <>
@@ -111,7 +69,7 @@ async function ContenidoDashboard() {
         title="Dashboard"
         description={`Panorama del día · ${diaLegible}`}
       />
-      <TarjetasMetricas mesLegible={mesLegible} />
+      <TarjetasMetricas mesLegible={mesLegible} diaCorto={diaCorto} />
     </>
   );
 }
@@ -134,7 +92,13 @@ async function cargarMetricas() {
 }
 
 /** Tarjetas de métricas del dashboard (stream solo con la data). */
-async function TarjetasMetricas({ mesLegible }: { mesLegible: string }) {
+async function TarjetasMetricas({
+  mesLegible,
+  diaCorto,
+}: {
+  mesLegible: string;
+  diaCorto: string;
+}) {
   const metricas = await cargarMetricas();
 
   const tarjetas = [
@@ -159,7 +123,9 @@ async function TarjetasMetricas({ mesLegible }: { mesLegible: string }) {
     {
       label: "Repartos de hoy",
       valor: String(metricas.repartosHoy),
-      detalle: "Hojas de ruta programadas",
+      detalle: `${diaCorto} · ${metricas.repartosHoyPendientes} ${
+        metricas.repartosHoyPendientes === 1 ? "pendiente" : "pendientes"
+      }`,
       href: "/repartos",
     },
     {
@@ -191,24 +157,6 @@ async function TarjetasMetricas({ mesLegible }: { mesLegible: string }) {
           </Card>
         </Link>
       ))}
-
-      <Card className="flex flex-col justify-center gap-3 border-dashed p-5">
-        <p className="text-sm font-medium text-zinc-700">Empezar a trabajar</p>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/remitos"
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
-          >
-            + Nuevo remito
-          </Link>
-          <Link
-            href="/gastos"
-            className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
-          >
-            Registrar gasto
-          </Link>
-        </div>
-      </Card>
     </div>
   );
 }

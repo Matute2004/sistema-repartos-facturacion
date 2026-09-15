@@ -231,12 +231,24 @@ export function formatFecha(iso: string): string {
   }).format(fecha);
 }
 
-/** Devuelve la fecha local de hoy en formato YYYY-MM-DD (uso en formularios). */
+/**
+ * Zona horaria de los usuarios del sistema (Argentina). El "día de trabajo"
+ * se calcula siempre con este reloj para que no dependa del horario del
+ * servidor de hosting (suele estar en UTC y puede mostrar el día siguiente).
+ */
+export const ZONA_HORARIA = "America/Argentina/Buenos_Aires";
+
+/** Devuelve la fecha de hoy en Buenos Aires como YYYY-MM-DD (uso en formularios y queries). */
 export function fechaHoyLocal(): string {
-  const ahora = new Date();
-  const offset = ahora.getTimezoneOffset();
-  const local = new Date(ahora.getTime() - offset * 60_000);
-  return local.toISOString().slice(0, 10);
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: ZONA_HORARIA,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const obtener = (tipo: "year" | "month" | "day") =>
+    partes.find((parte) => parte.type === tipo)?.value ?? "";
+  return `${obtener("year")}-${obtener("month")}-${obtener("day")}`;
 }
 
 // ----------------------------------------------------------------------------

@@ -1,6 +1,8 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { getDb } from "@/lib/db";
 import { migrate } from "@/lib/migrate";
+import { getMetricasDashboard } from "@/lib/data/dashboard";
+import { fechaHoyLocal } from "@/lib/types";
 import {
   actualizarCliente,
   crearCliente,
@@ -519,5 +521,25 @@ describe("flujo gastos", () => {
     expect(septiembre[0].descripcion).toBe("Septiembre 1");
     expect(septiembre[1].descripcion).toBe("Septiembre 2");
     expect(await listarGastosDelMes("2026-07")).toHaveLength(0);
+  });
+});
+
+describe("métricas del dashboard", () => {
+  it("cuenta los repartos de hoy y los pendientes de hoy (zona Buenos Aires)", async () => {
+    const clienteId = await crearClienteBasico(15);
+    const hoy = fechaHoyLocal();
+
+    // 3 repartos hoy: uno completado, uno en curso y uno pendiente (default).
+    const completado = await crearReparto({ fecha: hoy, clienteId });
+    await actualizarEstadoReparto(completado, "completado");
+    const enCurso = await crearReparto({ fecha: hoy, clienteId });
+    await actualizarEstadoReparto(enCurso, "en_curso");
+    await crearReparto({ fecha: hoy, clienteId });
+    // Fuera del día de hoy: no debe contar.
+    await crearReparto({ fecha: "2026-09-01", clienteId });
+
+    const metricas = await getMetricasDashboard();
+    expect(metricas.repartosHoy).toBe(3);
+    expect(metricas.repartosHoyPendientes).toBe(2);
   });
 });

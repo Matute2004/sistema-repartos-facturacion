@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   fechaHoyLocal,
   formatFecha,
@@ -66,6 +66,18 @@ describe("formatFecha", () => {
 describe("fechaHoyLocal", () => {
   it("devuelve la fecha local en formato YYYY-MM-DD", () => {
     expect(fechaHoyLocal()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("usa la zona horaria de Buenos Aires, no la del servidor", () => {
+    vi.useFakeTimers();
+    try {
+      // 01:30 UTC del 14 = 22:30 del 13 en Buenos Aires (-03:00): para la app
+      // todavía es el día 13 aunque el servidor (UTC) ya esté en el 14.
+      vi.setSystemTime(new Date("2026-09-14T01:30:00Z"));
+      expect(fechaHoyLocal()).toBe("2026-09-13");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

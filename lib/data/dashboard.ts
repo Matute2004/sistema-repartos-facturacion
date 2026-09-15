@@ -6,13 +6,14 @@ export interface MetricasDashboard {
   vehiculos: number;
   gastosMesCentavos: number;
   repartosHoy: number;
+  repartosHoyPendientes: number;
   remitosHoyPendientes: number;
   remitosPorAsignar: number;
 }
 
 /**
- * Métricas generales para el dashboard. Se calculan con la fecha local del
- * servidor como referencia del "día" de trabajo.
+ * Métricas generales para el dashboard. Se calculan con la fecha de hoy en
+ * Buenos Aires (`ZONA_HORARIA`) como referencia del "día" de trabajo.
  */
 export async function getMetricasDashboard(): Promise<MetricasDashboard> {
   const db = await getDb();
@@ -33,6 +34,10 @@ export async function getMetricasDashboard(): Promise<MetricasDashboard> {
       args: [hoy],
     },
     {
+      sql: "SELECT COUNT(*) AS total FROM repartos WHERE fecha = ? AND estado IN ('pendiente', 'en_curso')",
+      args: [hoy],
+    },
+    {
       sql: "SELECT COUNT(*) AS total FROM remitos WHERE fecha = ? AND estado = 'pendiente'",
       args: [hoy],
     },
@@ -47,7 +52,8 @@ export async function getMetricasDashboard(): Promise<MetricasDashboard> {
     vehiculos: numero(resultados[1].rows[0]),
     gastosMesCentavos: numero(resultados[2].rows[0]),
     repartosHoy: numero(resultados[3].rows[0]),
-    remitosHoyPendientes: numero(resultados[4].rows[0]),
-    remitosPorAsignar: numero(resultados[5].rows[0]),
+    repartosHoyPendientes: numero(resultados[4].rows[0]),
+    remitosHoyPendientes: numero(resultados[5].rows[0]),
+    remitosPorAsignar: numero(resultados[6].rows[0]),
   };
 }
