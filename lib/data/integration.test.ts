@@ -349,13 +349,51 @@ describe("flujo repartos y asignación de remitos", () => {
     });
     await crearReparto({ fecha: "2026-09-16", clienteId: clienteB });
 
-    const repartosA = await listarRepartosDelCliente(clienteA);
+    const repartosA = await listarRepartosDelCliente(clienteA, "Cliente 9");
     expect(repartosA).toHaveLength(1);
     expect(repartosA[0].id).toBe(r1);
     expect(repartosA[0].items).toHaveLength(1);
     expect(repartosA[0].items[0].descripcion).toBe("Caja");
     expect(repartosA[0].valorCentavos).toBe(1000);
     expect(repartosA[0].formaPago).toBeNull();
+  });
+
+  it("incluye en la ficha los repartos donde el cliente aparece como Flete Origen o Destino por nombre", async () => {
+    const clienteA = await crearClienteBasico(9); // "Cliente 9"
+    const clienteB = await crearClienteBasico(10);
+
+    // El cliente A está vinculado como cliente del reparto: r1 siempre aparece.
+    const r1 = await crearReparto({
+      fecha: "2026-09-15",
+      clienteId: clienteA,
+    });
+    // El cliente A aparece SOLO como Flete Destino (quién recibe) en un reparto
+    // vinculado a otro cliente: igual debe aparecer en la ficha de A.
+    const comoDestino = await crearReparto({
+      fecha: "2026-09-16",
+      clienteId: clienteB,
+      enviadoPor: "Cliente 10",
+      recibidoPor: "Cliente 9",
+      itemsMercaderia: [
+        { descripcion: "Caja", cantidad: 1, precioUnitarioCentavos: 700 },
+      ],
+    });
+    // El cliente A aparece como Flete Origen (quién envía) sin estar vinculado,
+    // y con el nombre en distinta capitalización: también debe aparecer.
+    const comoOrigen = await crearReparto({
+      fecha: "2026-09-17",
+      enviadoPor: "cliente 9",
+      itemsMercaderia: [
+        { descripcion: "Bulto", cantidad: 2, precioUnitarioCentavos: 500 },
+      ],
+    });
+
+    const repartos = await listarRepartosDelCliente(clienteA, "Cliente 9");
+    expect(repartos.map((r) => r.id).sort()).toEqual(
+      [r1, comoDestino, comoOrigen].sort(),
+    );
+    expect(repartos.find((r) => r.id === comoDestino)?.valorCentavos).toBe(700);
+    expect(repartos.find((r) => r.id === comoOrigen)?.valorCentavos).toBe(1000);
   });
 
   it("ordena los repartos por fecha, los más recientes primero", async () => {

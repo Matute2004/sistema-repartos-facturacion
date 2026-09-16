@@ -33,9 +33,10 @@ export default async function DetalleClientePage({
   const cliente = await obtenerCliente(Number(id));
   if (!cliente) notFound();
 
-  // Repartos del cliente: la misma fila completa que el listado general,
-  // filtrada por cliente, más el total que adeuda.
-  const repartos = await listarRepartosDelCliente(cliente.id);
+  // Repartos del cliente: la misma fila completa que el listado general; se
+  // incluyen los repartos vinculados al cliente y los que lo tienen como Flete
+  // Origen (envía) o Flete Destino (recibe) por nombre. Más el total que adeuda.
+  const repartos = await listarRepartosDelCliente(cliente.id, cliente.nombre);
   const totalAdeudadoCentavos = repartos
     .filter((reparto) => !reparto.cobrado)
     .reduce((total, reparto) => total + reparto.valorCentavos, 0);

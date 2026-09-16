@@ -145,16 +145,24 @@ export async function resumenDia(fecha: string): Promise<ResumenDia> {
 }
 
 /** Repartos de un cliente para su ficha, con la misma forma que el listado
- *  general: valor, remitos asociados e items de mercadería. */
+ *  general: valor, remitos asociados e items de mercadería.
+ *
+ *  Un reparto le pertenece al cliente si está vinculado a él (`cliente_id`) o
+ *  si su nombre aparece como Flete Origen (quién envía) o Flete Destino (quién
+ *  recibe): el cliente puede ser cualquiera de las dos puntas del reparto aunque
+ *  el reparto esté vinculado a otro cliente registrado. */
 export async function listarRepartosDelCliente(
   clienteId: number,
+  clienteNombre: string,
 ): Promise<Reparto[]> {
   return consultarRepartosCompletos(
     `${SQL_SELECCION_REPARTO}
      WHERE rp.cliente_id = ?
+        OR rp.chofer = ? COLLATE NOCASE
+        OR rp.vehiculo = ? COLLATE NOCASE
      GROUP BY rp.id
      ORDER BY rp.fecha DESC, rp.id DESC`,
-    [clienteId],
+    [clienteId, clienteNombre, clienteNombre],
   );
 }
 
