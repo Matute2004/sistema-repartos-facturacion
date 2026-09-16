@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db";
 import type { InArgs, InStatement } from "@libsql/core/api";
-import type { Cliente, EstadoRemito, Remito, RemitoItem } from "@/lib/types";
+import type { Cliente, Remito, RemitoItem } from "@/lib/types";
 
 type Fila = Record<string, unknown>;
 
@@ -12,7 +12,6 @@ function mapearRemito(fila: Fila): Remito {
     numero: Number(fila.numero),
     repartoId: fila.reparto_id ? Number(fila.reparto_id) : null,
     fecha: String(fila.fecha),
-    estado: String(fila.estado) as EstadoRemito,
     observaciones: fila.observaciones ? String(fila.observaciones) : null,
     valorCentavos: Number(fila.valor_centavos ?? 0),
     creadoEn: String(fila.creado_en),
@@ -26,7 +25,7 @@ function mapearRemito(fila: Fila): Remito {
  * (repartos.enviado_por).
  */
 const SQL_SELECCION_REMITO = `
-  SELECT r.id, r.numero, r.reparto_id, r.fecha, r.estado,
+  SELECT r.id, r.numero, r.reparto_id, r.fecha,
          r.observaciones, r.creado_en,
          COALESCE(c.nombre, rp.chofer) AS cliente_nombre,
          COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0) AS valor_centavos
@@ -61,7 +60,7 @@ export async function listarRemitos(): Promise<RemitoConCliente[]> {
 export async function obtenerRemito(id: number): Promise<Remito | null> {
   const db = await getDb();
   const resultado = await db.execute(
-    `SELECT r.id, r.numero, r.reparto_id, r.fecha, r.estado,
+    `SELECT r.id, r.numero, r.reparto_id, r.fecha,
             r.observaciones, r.creado_en,
             COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0) AS valor_centavos
      FROM remitos r
@@ -128,8 +127,8 @@ export async function crearRemito(datos: DatosNuevoRemito): Promise<number> {
   const db = await getDb();
 
   const insertRemito: InStatement = {
-    sql: `INSERT INTO remitos (numero, reparto_id, fecha, estado, observaciones)
-          VALUES (?, ?, ?, 'pendiente', ?)`,
+    sql: `INSERT INTO remitos (numero, reparto_id, fecha, observaciones)
+          VALUES (?, ?, ?, ?)`,
     args: [
       datos.numero,
       datos.repartoId,
@@ -172,10 +171,8 @@ export interface RemitoDisponible {
   clienteNombre: string | null;
 }
 
-/** Remitos pendientes que todavía no están asignados a ningún reparto. */
-export async function listarRemitosPendientesSinAsignar(): Promise<
-  RemitoDisponible[]
-> {
+/** Remitos que todavía no están asignados a ningún reparto (para agregarlos a la hoja de ruta). */
+export async function listarRemitosSinAsignar(): Promise<RemitoDisponible[]> {
   const db = await getDb();
   const resultado = await db.execute(
     `SELECT r.id, r.numero, r.fecha,
@@ -183,7 +180,7 @@ export async function listarRemitosPendientesSinAsignar(): Promise<
      FROM remitos r
      LEFT JOIN repartos rp ON rp.id = r.reparto_id
      LEFT JOIN clientes c ON c.id = rp.cliente_id
-     WHERE r.estado = 'pendiente' AND r.reparto_id IS NULL
+     WHERE r.reparto_id IS NULL
      ORDER BY r.numero ASC`,
   );
   return resultado.rows.map((fila) => {
@@ -218,15 +215,6 @@ export async function listarRemitosDelReparto(
   });
 }
 
-/** Actualiza el estado de un remito (pendiente | entregado | cancelado). */
-export async function actualizarEstadoRemito(
-  id: number,
-  estado: EstadoRemito,
-): Promise<void> {
-  const db = await getDb();
-  await db.execute("UPDATE remitos SET estado = ? WHERE id = ?", [estado, id]);
-}
-
 /** Contexto del reparto al que pertenece un remito (de dónde sale el cliente). */
 export interface RepartoRemitoContext {
   id: number;
@@ -255,7 +243,7 @@ export async function obtenerRemitoCompleto(
   // batch: un único round-trip HTTP a Turso.
   const [resRemito, resItems] = await db.batch([
     {
-      sql: `SELECT r.id, r.numero, r.reparto_id, r.fecha, r.estado,
+      sql: `SELECT r.id, r.numero, r.reparto_id, r.fecha,
                   r.observaciones, r.creado_en,
                   rp.id AS reparto_id_v, rp.fecha AS reparto_fecha,
                   rp.chofer AS enviado_por,

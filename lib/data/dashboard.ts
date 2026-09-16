@@ -6,9 +6,13 @@ export interface MetricasDashboard {
   vehiculos: number;
   gastosMesCentavos: number;
   repartosHoy: number;
-  repartosHoyPendientes: number;
-  repartosPendientesTotal: number;
-  remitosHoyPendientes: number;
+  /** Repartos de hoy que todavía no se cobraron (falta cobrar). */
+  repartosHoySinCobrar: number;
+  /** Repartos sin cobrar en total (todas las fechas). */
+  repartosSinCobrarTotal: number;
+  /** Remitos emitidos hoy. */
+  remitosHoy: number;
+  /** Remitos que todavía no tienen reparto asignado. */
   remitosPorAsignar: number;
 }
 
@@ -35,18 +39,19 @@ export async function getMetricasDashboard(): Promise<MetricasDashboard> {
       args: [hoy],
     },
     {
-      sql: "SELECT COUNT(*) AS total FROM repartos WHERE fecha = ? AND estado IN ('pendiente', 'en_curso')",
+      // Sin cobrar hoy: los repartos del día sin forma de pago elegida.
+      sql: "SELECT COUNT(*) AS total FROM repartos WHERE fecha = ? AND cobrado = 0",
       args: [hoy],
     },
     {
-      // Pendientes en total: acumula también los de fechas anteriores.
-      sql: "SELECT COUNT(*) AS total FROM repartos WHERE estado IN ('pendiente', 'en_curso')",
+      // Sin cobrar en total: acumula también las fechas anteriores.
+      sql: "SELECT COUNT(*) AS total FROM repartos WHERE cobrado = 0",
     },
     {
-      sql: "SELECT COUNT(*) AS total FROM remitos WHERE fecha = ? AND estado = 'pendiente'",
+      sql: "SELECT COUNT(*) AS total FROM remitos WHERE fecha = ?",
       args: [hoy],
     },
-    "SELECT COUNT(*) AS total FROM remitos WHERE estado = 'pendiente' AND reparto_id IS NULL",
+    "SELECT COUNT(*) AS total FROM remitos WHERE reparto_id IS NULL",
   ]);
 
   const numero = (fila: Record<string, unknown>) =>
@@ -57,9 +62,9 @@ export async function getMetricasDashboard(): Promise<MetricasDashboard> {
     vehiculos: numero(resultados[1].rows[0]),
     gastosMesCentavos: numero(resultados[2].rows[0]),
     repartosHoy: numero(resultados[3].rows[0]),
-    repartosHoyPendientes: numero(resultados[4].rows[0]),
-    repartosPendientesTotal: numero(resultados[5].rows[0]),
-    remitosHoyPendientes: numero(resultados[6].rows[0]),
+    repartosHoySinCobrar: numero(resultados[4].rows[0]),
+    repartosSinCobrarTotal: numero(resultados[5].rows[0]),
+    remitosHoy: numero(resultados[6].rows[0]),
     remitosPorAsignar: numero(resultados[7].rows[0]),
   };
 }

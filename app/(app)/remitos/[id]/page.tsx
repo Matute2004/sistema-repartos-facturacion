@@ -3,11 +3,9 @@ import Link from "next/link";
 import { obtenerRemitoCompleto } from "@/lib/data/remitos";
 import { formatFecha, formatPesos } from "@/lib/types";
 import { ButtonLink } from "@/app/components/ui/form";
-import { Badge, Card, PageHeader } from "@/app/components/ui/display";
-import { EstadoRemitoForm } from "@/app/components/remitos/EstadoRemitoForm";
+import { Card, PageHeader } from "@/app/components/ui/display";
 import { RemitoDeleteButton } from "@/app/components/remitos/RemitoDeleteButton";
 import { ImprimirButton } from "@/app/components/remitos/ImprimirButton";
-import { ETIQUETA_ESTADO_REMITO, TONE_ESTADO_REMITO } from "@/lib/estados";
 
 export const metadata = { title: "Remito" };
 
@@ -45,14 +43,9 @@ export default async function DetalleRemitoPage({
         />
 
         <div className="mb-6 flex flex-wrap items-center gap-x-8 gap-y-4">
-          <div className="flex items-center gap-3">
-            <Badge tone={TONE_ESTADO_REMITO[remito.estado]}>
-              {ETIQUETA_ESTADO_REMITO[remito.estado]}
-            </Badge>
-            <span className="text-sm text-zinc-500">
-              Emitido el {formatFecha(remito.fecha)}
-            </span>
-          </div>
+          <span className="text-sm text-zinc-500">
+            Emitido el {formatFecha(remito.fecha)}
+          </span>
           {reparto && (
             <div className="text-sm">
               <span className="text-zinc-500">
@@ -70,7 +63,6 @@ export default async function DetalleRemitoPage({
         </div>
 
         <Card className="mb-6 flex flex-wrap items-end gap-x-8 gap-y-4 p-4">
-          <EstadoRemitoForm remitoId={remito.id} estadoActual={remito.estado} />
           <RemitoDeleteButton id={remito.id} />
         </Card>
       </div>

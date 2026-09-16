@@ -33,10 +33,7 @@ vi.mock("@/lib/data/remitos", async (importOriginal) => {
   return { ...original, crearRemito, proximoNumeroRemito };
 });
 
-import {
-  actualizarEstadoRemitoAction,
-  crearRemitoAction,
-} from "@/app/actions/remitos";
+import { crearRemitoAction } from "@/app/actions/remitos";
 import { estadoInicial } from "@/app/actions/estado";
 
 beforeEach(() => {
@@ -112,16 +109,5 @@ describe("crearRemitoAction", () => {
     const resultado = await crearRemitoAction(estadoInicial, formData);
     expect(resultado.error).toContain("línea");
     expect(crearRemito).not.toHaveBeenCalled();
-  });
-});
-
-describe("actualizarEstadoRemitoAction", () => {
-  it("rechaza un estado que no es de la lista", async () => {
-    const formData = new FormData();
-    formData.set("id", "3");
-    formData.set("estado", "no-existe");
-
-    const resultado = await actualizarEstadoRemitoAction(estadoInicial, formData);
-    expect(resultado.error).toBe("Estado inválido.");
   });
 });

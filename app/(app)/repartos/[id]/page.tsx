@@ -3,12 +3,11 @@ import Link from "next/link";
 import { obtenerReparto } from "@/lib/data/repartos";
 import {
   listarRemitosDelReparto,
-  listarRemitosPendientesSinAsignar,
+  listarRemitosSinAsignar,
 } from "@/lib/data/remitos";
 import { ETIQUETA_FORMA_PAGO, formatFecha, formatPesos } from "@/lib/types";
 import { ButtonLink } from "@/app/components/ui/form";
 import {
-  Badge,
   Card,
   CardHeader,
   PageHeader,
@@ -16,15 +15,8 @@ import {
   Td,
   Th,
 } from "@/app/components/ui/display";
-import { EstadoRepartoForm } from "@/app/components/repartos/EstadoRepartoForm";
 import { AsignarRemitosForm } from "@/app/components/repartos/AsignarRemitosForm";
 import { RepartoDeleteButton } from "@/app/components/repartos/RepartoDeleteButton";
-import {
-  ETIQUETA_ESTADO_REMITO,
-  ETIQUETA_ESTADO_REPARTO,
-  TONE_ESTADO_REMITO,
-  TONE_ESTADO_REPARTO,
-} from "@/lib/estados";
 
 export const metadata = { title: "Reparto" };
 
@@ -42,7 +34,7 @@ export default async function DetalleRepartoPage({
 
   const [remitos, disponibles] = await Promise.all([
     listarRemitosDelReparto(reparto.id),
-    listarRemitosPendientesSinAsignar(),
+    listarRemitosSinAsignar(),
   ]);
 
   return (
@@ -52,8 +44,11 @@ export default async function DetalleRepartoPage({
           title={`Reparto del ${formatFecha(reparto.fecha)}`}
           description="Hoja de ruta con los remitos asignados."
           action={
-            <ButtonLink href="/repartos" variant="ghost">
-              ← Volver a repartos
+            <ButtonLink
+              href={`/repartos?fecha=${reparto.fecha}`}
+              variant="ghost"
+            >
+              ← Volver a la hoja de ruta
             </ButtonLink>
           }
         />
@@ -62,23 +57,7 @@ export default async function DetalleRepartoPage({
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Estado
-              </p>
-              <Badge tone={TONE_ESTADO_REPARTO[reparto.estado]} className="mt-1">
-                {ETIQUETA_ESTADO_REPARTO[reparto.estado]}
-              </Badge>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Fecha
-              </p>
-              <p className="mt-1 text-sm font-medium text-zinc-900">
-                {formatFecha(reparto.fecha)}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Cliente (Envía)
+                Envía
               </p>
               {reparto.clienteId ? (
                 <Link
@@ -113,7 +92,9 @@ export default async function DetalleRepartoPage({
                 <p className="mt-1 text-sm font-medium text-zinc-900">
                   {ETIQUETA_FORMA_PAGO[reparto.formaPago]}
                   {!reparto.cobrado && (
-                    <span className="ml-1 text-xs text-zinc-400">(sin cobrar)</span>
+                    <span className="ml-1 text-xs text-zinc-400">
+                      (sin cobrar)
+                    </span>
                   )}
                 </p>
               ) : (
@@ -160,10 +141,6 @@ export default async function DetalleRepartoPage({
           )}
 
           <div className="mt-5 flex flex-wrap items-end gap-x-8 gap-y-4 border-t border-zinc-100 pt-4">
-            <EstadoRepartoForm
-              repartoId={reparto.id}
-              estadoActual={reparto.estado}
-            />
             <RepartoDeleteButton id={reparto.id} />
           </div>
         </Card>
@@ -183,7 +160,6 @@ export default async function DetalleRepartoPage({
                 <tr>
                   <Th>N°</Th>
                   <Th>Cliente</Th>
-                  <Th>Estado</Th>
                   <Th className="text-right">Valor</Th>
                 </tr>
               </thead>
@@ -203,11 +179,6 @@ export default async function DetalleRepartoPage({
                         <span className="text-zinc-400">Sin reparto</span>
                       )}
                     </Td>
-                    <Td>
-                      <Badge tone={TONE_ESTADO_REMITO[remito.estado]}>
-                        {ETIQUETA_ESTADO_REMITO[remito.estado]}
-                      </Badge>
-                    </Td>
                     <Td className="whitespace-nowrap text-right font-medium text-zinc-900">
                       {formatPesos(remito.valorCentavos)}
                     </Td>
@@ -221,7 +192,7 @@ export default async function DetalleRepartoPage({
         <Card>
           <CardHeader
             title="Asignar remitos"
-            description="Seleccioná remitos pendientes sin asignar para sumarlos a esta hoja de ruta."
+            description="Seleccioná remitos sin asignar para sumarlos a esta hoja de ruta."
           />
           <div className="p-5">
             <AsignarRemitosForm
@@ -234,7 +205,7 @@ export default async function DetalleRepartoPage({
 
       <p className="mt-4 text-xs text-zinc-400">
         <Link href="/repartos" className="underline">
-          Volver a repartos
+          Volver a la hoja de ruta
         </Link>
       </p>
     </div>

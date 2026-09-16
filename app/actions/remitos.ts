@@ -4,15 +4,12 @@ import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction } from "@/app/actions/estado";
 import { exigirAdmin } from "@/lib/auth";
-import { ESTADOS_REMITO } from "@/lib/estados";
 import {
-  actualizarEstadoRemito,
   crearRemito,
   eliminarRemito,
   proximoNumeroRemito,
 } from "@/lib/data/remitos";
 import { pesosACentavos } from "@/lib/types";
-import type { EstadoRemito } from "@/lib/types";
 
 function texto(formData: FormData, campo: string): string {
   return String(formData.get(campo) ?? "").trim();
@@ -21,10 +18,6 @@ function texto(formData: FormData, campo: string): string {
 function textoOpcional(formData: FormData, campo: string): string | undefined {
   const valor = texto(formData, campo);
   return valor.length > 0 ? valor : undefined;
-}
-
-function esEstadoRemito(valor: string): valor is EstadoRemito {
-  return (ESTADOS_REMITO as readonly string[]).includes(valor);
 }
 
 /** Reconstruye los items a partir de los campos repetidos del formulario. */
@@ -110,39 +103,6 @@ export async function crearRemitoAction(
   updateTag("repartos");
   updateTag("clientes");
   redirect(`/remitos/${remitoId}`);
-}
-
-// ----------------------------------------------------------------------------
-// Cambio de estado de remito
-// ----------------------------------------------------------------------------
-export async function actualizarEstadoRemitoAction(
-  _estado: EstadoAction,
-  formData: FormData,
-): Promise<EstadoAction> {
-  await exigirAdmin();
-  const id = Number(formData.get("id"));
-  const nuevoEstado = texto(formData, "estado");
-
-  if (!Number.isInteger(id) || id <= 0) {
-    return { error: "Remito inválido." };
-  }
-  if (!esEstadoRemito(nuevoEstado)) {
-    return { error: "Estado inválido." };
-  }
-
-  try {
-    await actualizarEstadoRemito(id, nuevoEstado);
-  } catch (error) {
-    console.error("[remitos] error al actualizar estado:", error);
-    return { error: "No se pudo actualizar el estado del remito." };
-  }
-
-  revalidatePath(`/remitos/${id}`);
-  revalidatePath("/remitos");
-  updateTag("remitos");
-  updateTag("repartos");
-  updateTag("clientes");
-  return { error: null };
 }
 
 // ----------------------------------------------------------------------------

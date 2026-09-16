@@ -59,8 +59,11 @@ export interface Gasto {
 
 // ----------------------------------------------------------------------------
 // Repartos y remitos (base para el módulo de hojas de ruta)
+//
+// Ya no existe "estado" ni "entregado/completado": cada día tiene su hoja de
+// ruta (los repartos de esa fecha) y lo que importa es si el reparto se cobró
+// (`cobrado` + `formaPago`) o todavía falta cobrar.
 // ----------------------------------------------------------------------------
-export type EstadoReparto = "pendiente" | "en_curso" | "completado" | "cancelado";
 
 // ----------------------------------------------------------------------------
 // Formas de pago de los repartos
@@ -90,7 +93,6 @@ export interface RepartoRemitoLigero {
 export interface Reparto {
   id: number;
   fecha: string;
-  estado: EstadoReparto;
   /** Cliente vinculado al reparto (el "Envía"), o null si es un reparto viejo. */
   clienteId: number | null;
   /** Nombre del cliente vinculado, para mostrar directo en listas. */
@@ -131,8 +133,6 @@ export interface RepartoItem {
   precioUnitarioCentavos: number;
 }
 
-export type EstadoRemito = "pendiente" | "entregado" | "cancelado";
-
 export interface Remito {
   id: number;
   numero: number;
@@ -143,7 +143,6 @@ export interface Remito {
    */
   repartoId: number | null;
   fecha: string;
-  estado: EstadoRemito;
   observaciones: string | null;
   /** Suma del valor de sus items, en centavos. */
   valorCentavos: number;
@@ -258,6 +257,54 @@ export function fechaHoyLocal(): string {
   const obtener = (tipo: "year" | "month" | "day") =>
     partes.find((parte) => parte.type === tipo)?.value ?? "";
   return `${obtener("year")}-${obtener("month")}-${obtener("day")}`;
+}
+
+/**
+ * Suma o resta días a una fecha YYYY-MM-DD y devuelve la fecha resultante.
+ * Se construye con los componentes en hora local para no depender del reloj
+ * del servidor (misma idea que `fechaHoyLocal`).
+ */
+export function sumarDias(fecha: string, cantidad: number): string {
+  const [anio, mes, dia] = fecha.split("-").map(Number);
+  const resultado = new Date(anio, mes - 1, dia + cantidad);
+  const mesDos = String(resultado.getMonth() + 1).padStart(2, "0");
+  const diaDos = String(resultado.getDate()).padStart(2, "0");
+  return `${resultado.getFullYear()}-${mesDos}-${diaDos}`;
+}
+
+/** Devuelve true si el valor es una fecha YYYY-MM-DD real (no 2026-13-40). */
+export function esFechaValida(
+  valor: string | null | undefined,
+): valor is string {
+  if (!valor) return false;
+  const partes = valor.split("-");
+  if (partes.length !== 3) return false;
+  const [anio, mes, dia] = partes.map(Number);
+  if (
+    !Number.isInteger(anio) ||
+    !Number.isInteger(mes) ||
+    !Number.isInteger(dia)
+  ) {
+    return false;
+  }
+  const fecha = new Date(anio, mes - 1, dia);
+  return (
+    fecha.getFullYear() === anio &&
+    fecha.getMonth() === mes - 1 &&
+    fecha.getDate() === dia
+  );
+}
+
+/** Formatea una fecha YYYY-MM-DD en español largo, ej: "lunes, 15 de septiembre de 2026". */
+export function fechaLegible(iso: string): string {
+  if (!esFechaValida(iso)) return iso;
+  const [anio, mes, dia] = iso.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-AR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(anio, mes - 1, dia, 12));
 }
 
 // ----------------------------------------------------------------------------

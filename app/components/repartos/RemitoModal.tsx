@@ -3,8 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { formatFecha, formatPesos } from "@/lib/types";
-import { ETIQUETA_ESTADO_REMITO, TONE_ESTADO_REMITO } from "@/lib/estados";
-import { Badge } from "@/app/components/ui/display";
 import { Button } from "@/app/components/ui/form";
 
 interface RemitoResumen {
@@ -18,7 +16,6 @@ interface DetalleRemito {
     numero: number;
     repartoId: number | null;
     fecha: string;
-    estado: "pendiente" | "entregado" | "cancelado";
     observaciones: string | null;
     valorCentavos: number;
     creadoEn: string;
@@ -112,9 +109,6 @@ export function RemitoModal({ remitos }: { remitos: RemitoResumen[] }) {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Badge tone={TONE_ESTADO_REMITO[abierto.remito.estado]}>
-                  {ETIQUETA_ESTADO_REMITO[abierto.remito.estado]}
-                </Badge>
                 <Button
                   variant="ghost"
                   className="px-2.5 py-1.5"

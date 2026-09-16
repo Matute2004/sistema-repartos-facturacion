@@ -5,9 +5,7 @@ import { redirect } from "next/navigation";
 import type { EstadoAction } from "@/app/actions/estado";
 import { exigirAdmin } from "@/lib/auth";
 import { obtenerClientePorNombre, obtenerOCrearClientePorNombre } from "@/lib/data/clientes";
-import { ESTADOS_REPARTO } from "@/lib/estados";
 import {
-  actualizarEstadoReparto,
   actualizarFormaPagoReparto,
   asignarRemitosAReparto,
   crearReparto,
@@ -16,7 +14,7 @@ import {
 } from "@/lib/data/repartos";
 import { crearRemito, proximoNumeroRemito } from "@/lib/data/remitos";
 import { FORMAS_PAGO, pesosACentavos } from "@/lib/types";
-import type { EstadoReparto, FormaPago } from "@/lib/types";
+import type { FormaPago } from "@/lib/types";
 
 function texto(formData: FormData, campo: string): string {
   return String(formData.get(campo) ?? "").trim();
@@ -25,10 +23,6 @@ function texto(formData: FormData, campo: string): string {
 function textoOpcional(formData: FormData, campo: string): string | undefined {
   const valor = texto(formData, campo);
   return valor.length > 0 ? valor : undefined;
-}
-
-function esEstadoReparto(valor: string): valor is EstadoReparto {
-  return (ESTADOS_REPARTO as readonly string[]).includes(valor);
 }
 
 function esFormaPago(valor: string): valor is FormaPago {
@@ -163,7 +157,6 @@ export async function crearRepartoAction(
     // remito aunque el cliente (Envía) no esté en la lista, sin crear nada.
     const repartoId = await crearReparto({
       fecha,
-      estado: "pendiente",
       clienteId,
       enviadoPor: nombreEnvia,
       recibidoPor: textoOpcional(formData, "recibido_por"),
@@ -248,39 +241,6 @@ export async function actualizarFormaPagoRepartoAction(
   } catch (error) {
     console.error("[repartos] error al actualizar forma de pago:", error);
     return { error: "No se pudo actualizar la forma de pago." };
-  }
-
-  revalidatePath(`/repartos/${id}`);
-  revalidatePath("/repartos");
-  updateTag("repartos");
-  updateTag("remitos");
-  updateTag("clientes");
-  return { error: null };
-}
-
-// ----------------------------------------------------------------------------
-// Cambio de estado de reparto
-// ----------------------------------------------------------------------------
-export async function actualizarEstadoRepartoAction(
-  _estado: EstadoAction,
-  formData: FormData,
-): Promise<EstadoAction> {
-  await exigirAdmin();
-  const id = Number(formData.get("id"));
-  const nuevoEstado = texto(formData, "estado");
-
-  if (!Number.isInteger(id) || id <= 0) {
-    return { error: "Reparto inválido." };
-  }
-  if (!esEstadoReparto(nuevoEstado)) {
-    return { error: "Estado inválido." };
-  }
-
-  try {
-    await actualizarEstadoReparto(id, nuevoEstado);
-  } catch (error) {
-    console.error("[repartos] error al actualizar estado:", error);
-    return { error: "No se pudo actualizar el estado del reparto." };
   }
 
   revalidatePath(`/repartos/${id}`);

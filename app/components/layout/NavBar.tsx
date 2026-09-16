@@ -7,7 +7,7 @@ import type { UsuarioSesion } from "@/lib/types";
 const linkItems = [
   { href: "/", label: "Dashboard" },
   { href: "/clientes", label: "Clientes" },
-  { href: "/repartos", label: "Repartos" },
+  { href: "/repartos", label: "Hoja de Ruta" },
   { href: "/remitos", label: "Remitos" },
   { href: "/vehiculos", label: "Vehículos" },
   { href: "/facturacion", label: "Facturación" },

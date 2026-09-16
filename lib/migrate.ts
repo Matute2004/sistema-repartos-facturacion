@@ -71,17 +71,13 @@ export async function migrate(): Promise<void> {
     "CREATE INDEX IF NOT EXISTS idx_repartos_cliente ON repartos(cliente_id)",
   );
 
-  // Índices compuestos para acelerar la deuda de clientes (filtro cliente +
-  // cobrado + estado) y los remitos pendientes sin asignar. Idempotentes y
-  // seguros de correr varias veces.
+  // Índices compuestos para acelerar la deuda de clientes y el resumen de
+  // cobros diarios. Idempotentes y seguros de correr varias veces.
   await db.execute(
-    "CREATE INDEX IF NOT EXISTS idx_repartos_cliente_cobrado_estado ON repartos(cliente_id, cobrado, estado)",
+    "CREATE INDEX IF NOT EXISTS idx_repartos_cliente_cobrado ON repartos(cliente_id, cobrado)",
   );
   await db.execute(
-    "CREATE INDEX IF NOT EXISTS idx_remitos_estado_reparto ON remitos(estado, reparto_id)",
-  );
-  await db.execute(
-    "CREATE INDEX IF NOT EXISTS idx_remitos_fecha_estado ON remitos(fecha, estado)",
+    "CREATE INDEX IF NOT EXISTS idx_remitos_fecha ON remitos(fecha)",
   );
 
   // La mercadería directa pasó de ser una sola línea en `repartos` a varias
@@ -114,7 +110,13 @@ export async function migrate(): Promise<void> {
   // se elimina la columna cliente_id de remitos conservando los datos. Debe
   // correrse después del schema para que las bases nuevas ya vengan sin la
   // columna y no haga nada.
+  await reconstruirRepartosSinEstado(db);
   await reconstruirRemitosSinCliente(db);
+
+  // El "estado" ya no existe (ni en repartos ni en remitos): cada día se abre
+  // una hoja de ruta y solo importa si el reparto se cobró. Se eliminan las
+  // columnas conservando los datos (mismo truco de RENAME que arriba).
+  await reconstruirRemitosSinEstado(db);
 
   // Rol único: el sistema opera solo con administradores. Si quedaron
   // usuarios con rol 'operador' de versiones previas, se los promueve.
@@ -214,6 +216,166 @@ async function reconstruirRemitosSinCliente(
     { sql: "CREATE INDEX IF NOT EXISTS idx_remitos_reparto ON remitos(reparto_id)", args: [] },
     { sql: "CREATE INDEX IF NOT EXISTS idx_remitos_estado_reparto ON remitos(estado, reparto_id)", args: [] },
     { sql: "CREATE INDEX IF NOT EXISTS idx_remitos_fecha_estado ON remitos(fecha, estado)", args: [] },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_remito_items_remito ON remito_items(remito_id)", args: [] },
+  ];
+
+  await db.batch(statements);
+}
+
+/**
+ * Reconstruye la tabla `repartos` sin la columna `estado`.
+ *
+ * El "estado" del reparto (pendiente/en curso/completado/cancelado) ya no
+ * existe: cada día tiene su hoja de ruta y lo único que se registra es si el
+ * reparto se cobró (`cobrado` + `forma_pago`). Mismo intercambio de tablas
+ * (RENAME) que `reconstruirRemitosSinCliente`, sin desactivar foreign_keys:
+ * SQLite actualiza las referencias de `reparto_items` y `remitos` en cada RENAME.
+ */
+async function reconstruirRepartosSinEstado(
+  db: Awaited<ReturnType<typeof getDb>>,
+): Promise<void> {
+  const info = await db.execute(
+    "SELECT name FROM pragma_table_info('repartos') WHERE name = 'estado'",
+  );
+  if (info.rows.length === 0) {
+    // Ya reconstruida. Si un run anterior quedó a medias, limpiamos restos.
+    await db.execute("DROP TABLE IF EXISTS repartos_viejo");
+    return;
+  }
+
+  const statements: InStatement[] = [
+    // Partimos limpio por si quedó una reconstrucción anterior a medias.
+    { sql: "DROP TABLE IF EXISTS repartos_viejo", args: [] },
+    { sql: "DROP TABLE IF EXISTS repartos_nuevo", args: [] },
+
+    // Tabla nueva sin `estado` (misma forma que lib/schema.sql).
+    {
+      sql: `CREATE TABLE repartos_nuevo (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha         TEXT NOT NULL DEFAULT (date('now')),
+        cliente_id    INTEGER REFERENCES clientes(id) ON DELETE SET NULL,
+        lleva_remito  INTEGER NOT NULL DEFAULT 0,
+        forma_pago    TEXT NOT NULL DEFAULT 'contado'
+                      CHECK (forma_pago IN ('contado', 'cuenta_corriente', 'debito', 'cheque')),
+        cobrado       INTEGER NOT NULL DEFAULT 0,
+        chofer        TEXT,
+        vehiculo      TEXT,
+        notas         TEXT,
+        creado_en     TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+      args: [],
+    },
+
+    // Copiamos los datos antes de borrar nada (una falla a mitad no pierde nada).
+    {
+      sql: `INSERT INTO repartos_nuevo (id, fecha, cliente_id, lleva_remito, forma_pago,
+                                        cobrado, chofer, vehiculo, notas, creado_en)
+            SELECT id, fecha, cliente_id, lleva_remito, forma_pago,
+                   cobrado, chofer, vehiculo, notas, creado_en FROM repartos`,
+      args: [],
+    },
+
+    // Los índices viejos apuntan a la tabla vieja; se recrean al final.
+    { sql: "DROP INDEX IF EXISTS idx_repartos_fecha", args: [] },
+    { sql: "DROP INDEX IF EXISTS idx_repartos_cliente", args: [] },
+    { sql: "DROP INDEX IF EXISTS idx_repartos_cliente_cobrado_estado", args: [] },
+
+    // Intercambio: la vieja se renombra y la nueva toma su lugar.
+    { sql: "ALTER TABLE repartos RENAME TO repartos_viejo", args: [] },
+    { sql: "ALTER TABLE repartos_nuevo RENAME TO repartos", args: [] },
+
+    // Los datos ya están en la tabla nueva; limpiamos la vieja.
+    { sql: "DROP TABLE repartos_viejo", args: [] },
+
+    // Índices del nuevo formato (idempotentes como en schema.sql).
+    { sql: "CREATE INDEX IF NOT EXISTS idx_repartos_fecha ON repartos(fecha)", args: [] },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_repartos_cliente ON repartos(cliente_id)", args: [] },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_repartos_cliente_cobrado ON repartos(cliente_id, cobrado)", args: [] },
+  ];
+
+  await db.batch(statements);
+}
+
+/**
+ * Reconstruye la tabla `remitos` sin la columna `estado`.
+ *
+ * El remito ya no tiene "entregado / no entregado". Se copian los datos
+ * (remitos + remito_items) y se vuelve a armar la tabla sin la columna.
+ */
+async function reconstruirRemitosSinEstado(
+  db: Awaited<ReturnType<typeof getDb>>,
+): Promise<void> {
+  const info = await db.execute(
+    "SELECT name FROM pragma_table_info('remitos') WHERE name = 'estado'",
+  );
+  if (info.rows.length === 0) {
+    // Ya reconstruida. Si un run anterior quedó a medias, limpiamos restos.
+    await db.execute("DROP TABLE IF EXISTS remito_items_viejo");
+    await db.execute("DROP TABLE IF EXISTS remitos_viejo");
+    return;
+  }
+
+  const statements: InStatement[] = [
+    // Partimos limpio por si quedó una reconstrucción anterior a medias.
+    { sql: "DROP TABLE IF EXISTS remito_items_viejo", args: [] },
+    { sql: "DROP TABLE IF EXISTS remitos_viejo", args: [] },
+    { sql: "DROP TABLE IF EXISTS remito_items_nuevo", args: [] },
+    { sql: "DROP TABLE IF EXISTS remitos_nuevo", args: [] },
+
+    // Tablas nuevas sin `estado` (misma forma que lib/schema.sql).
+    {
+      sql: `CREATE TABLE remitos_nuevo (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        numero         INTEGER NOT NULL,
+        reparto_id     INTEGER REFERENCES repartos(id) ON DELETE SET NULL,
+        fecha          TEXT NOT NULL DEFAULT (date('now')),
+        observaciones  TEXT,
+        creado_en      TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (numero)
+      )`,
+      args: [],
+    },
+    {
+      sql: `CREATE TABLE remito_items_nuevo (
+        id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+        remito_id                INTEGER NOT NULL REFERENCES remitos_nuevo(id) ON DELETE CASCADE,
+        descripcion              TEXT NOT NULL,
+        cantidad                 REAL NOT NULL DEFAULT 1 CHECK (cantidad > 0),
+        precio_unitario_centavos INTEGER NOT NULL DEFAULT 0 CHECK (precio_unitario_centavos >= 0)
+      )`,
+      args: [],
+    },
+
+    // Copiamos los datos antes de borrar nada (una falla a mitad no pierde nada).
+    {
+      sql: `INSERT INTO remitos_nuevo (id, numero, reparto_id, fecha, observaciones, creado_en)
+            SELECT id, numero, reparto_id, fecha, observaciones, creado_en FROM remitos`,
+      args: [],
+    },
+    {
+      sql: `INSERT INTO remito_items_nuevo (id, remito_id, descripcion, cantidad, precio_unitario_centavos)
+            SELECT id, remito_id, descripcion, cantidad, precio_unitario_centavos FROM remito_items`,
+      args: [],
+    },
+
+    // Los índices viejos apuntan a la tabla vieja; se recrean al final.
+    { sql: "DROP INDEX IF EXISTS idx_remitos_reparto", args: [] },
+    { sql: "DROP INDEX IF EXISTS idx_remitos_estado_reparto", args: [] },
+    { sql: "DROP INDEX IF EXISTS idx_remitos_fecha_estado", args: [] },
+    { sql: "DROP INDEX IF EXISTS idx_remitos_fecha", args: [] },
+
+    // Intercambio: las viejas se renombran y las nuevas toman su lugar.
+    { sql: "ALTER TABLE remitos RENAME TO remitos_viejo", args: [] },
+    { sql: "ALTER TABLE remito_items RENAME TO remito_items_viejo", args: [] },
+    { sql: "ALTER TABLE remitos_nuevo RENAME TO remitos", args: [] },
+    { sql: "ALTER TABLE remito_items_nuevo RENAME TO remito_items", args: [] },
+
+    { sql: "DROP TABLE remito_items_viejo", args: [] },
+    { sql: "DROP TABLE remitos_viejo", args: [] },
+
+    // Índices del nuevo formato (idempotentes como en schema.sql).
+    { sql: "CREATE INDEX IF NOT EXISTS idx_remitos_reparto ON remitos(reparto_id)", args: [] },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_remitos_fecha ON remitos(fecha)", args: [] },
     { sql: "CREATE INDEX IF NOT EXISTS idx_remito_items_remito ON remito_items(remito_id)", args: [] },
   ];
 

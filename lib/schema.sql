@@ -30,13 +30,13 @@ CREATE TABLE IF NOT EXISTS clientes (
 );
 
 -- ----------------------------------------------------------------------------
--- Repartos (hojas de ruta diarias)
+-- Repartos (una entrega por cliente en una hoja de ruta diaria)
+-- Ya no existe "estado" ni casilla de completado: cada día tiene su hoja de
+-- ruta (los repartos de esa fecha) y solo importa si el reparto se cobró.
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS repartos (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   fecha       TEXT NOT NULL DEFAULT (date('now')), -- YYYY-MM-DD
-  estado      TEXT NOT NULL DEFAULT 'pendiente'
-              CHECK (estado IN ('pendiente', 'en_curso', 'completado', 'cancelado')),
   cliente_id  INTEGER REFERENCES clientes(id) ON DELETE SET NULL,
   lleva_remito INTEGER NOT NULL DEFAULT 0,
   forma_pago  TEXT NOT NULL DEFAULT 'contado'
@@ -74,8 +74,6 @@ CREATE TABLE IF NOT EXISTS remitos (
   numero         INTEGER NOT NULL, -- correlativo por comercio
   reparto_id     INTEGER REFERENCES repartos(id) ON DELETE SET NULL,
   fecha          TEXT NOT NULL DEFAULT (date('now')),
-  estado         TEXT NOT NULL DEFAULT 'pendiente'
-                 CHECK (estado IN ('pendiente', 'entregado', 'cancelado')),
   observaciones  TEXT,
   creado_en      TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (numero)
@@ -113,14 +111,11 @@ CREATE INDEX IF NOT EXISTS idx_remitos_reparto     ON remitos(reparto_id);
 CREATE INDEX IF NOT EXISTS idx_remito_items_remito ON remito_items(remito_id);
 CREATE INDEX IF NOT EXISTS idx_gastos_fecha        ON gastos(fecha);
 CREATE INDEX IF NOT EXISTS idx_gastos_categoria    ON gastos(categoria);
+CREATE INDEX IF NOT EXISTS idx_remitos_fecha       ON remitos(fecha);
 
--- Índices compuestos para consultas de deuda y búsquedas de estado frecuentes.
-CREATE INDEX IF NOT EXISTS idx_repartos_cliente_cobrado_estado
-  ON repartos(cliente_id, cobrado, estado);
-CREATE INDEX IF NOT EXISTS idx_remitos_estado_reparto
-  ON remitos(estado, reparto_id);
-CREATE INDEX IF NOT EXISTS idx_remitos_fecha_estado
-  ON remitos(fecha, estado);
+-- Índices compuestos para consultas de deuda y resúmenes de cobro diarios.
+CREATE INDEX IF NOT EXISTS idx_repartos_cliente_cobrado
+  ON repartos(cliente_id, cobrado);
 
 -- ----------------------------------------------------------------------------
 -- Vehículos (flota propia)

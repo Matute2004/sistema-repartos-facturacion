@@ -60,14 +60,14 @@ export async function listarClientes(): Promise<Cliente[]> {
 
 /** Lista clientes en versión liviana (sin notas ni fechas) para la tabla.
  *  Reduce la cantidad de PII que viaja al navegador en el payload RSC.
- *  La deuda suma el valor de los repartos sin cobrar y no cancelados:
- *  items de los remitos asignados + mercadería directa del reparto. */
+ *  La deuda suma el valor de los repartos sin cobrar (ya no existe el estado
+ *  "cancelado"): items de los remitos asignados + mercadería directa del reparto. */
 export async function listarClientesResumen(): Promise<ClienteResumen[]> {
   const db = await getDb();
   // Deuda por cliente calculada con JOINs sobre agregaciones (una sola pasada
   // por tabla), en vez de subconsultas correlacionadas por cliente (que se
-  // vuelven O(n*m) con muchos clientes). La deuda suma los repartos sin cobrar
-  // y no cancelados: items de los remitos asignados + mercadería directa.
+  // vuelven O(n*m) con muchos clientes). La deuda suma los repartos sin cobrar:
+  // items de los remitos asignados + mercadería directa del reparto.
   const resultado = await db.execute(
     `SELECT c.id, c.numero, c.nombre, c.cuit, c.direccion, c.localidad, c.telefono, c.email,
             c.es_cuenta_corriente,
@@ -86,7 +86,6 @@ export async function listarClientesResumen(): Promise<ClienteResumen[]> {
        ) v ON v.reparto_id = rp.id
        WHERE rp.cliente_id IS NOT NULL
          AND rp.cobrado = 0
-         AND rp.estado <> 'cancelado'
        GROUP BY rp.cliente_id
      ) d_rem ON d_rem.cliente_id = c.id
      LEFT JOIN (
@@ -96,7 +95,6 @@ export async function listarClientesResumen(): Promise<ClienteResumen[]> {
        JOIN reparto_items mi ON mi.reparto_id = rp2.id
        WHERE rp2.cliente_id IS NOT NULL
          AND rp2.cobrado = 0
-         AND rp2.estado <> 'cancelado'
        GROUP BY rp2.cliente_id
      ) d_rep ON d_rep.cliente_id = c.id
      ORDER BY COALESCE(c.numero, 999999) ASC, c.nombre COLLATE NOCASE ASC`,

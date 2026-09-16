@@ -23,7 +23,6 @@ import {
   totalGastosDelMes,
 } from "@/lib/data/gastos";
 import {
-  actualizarEstadoReparto,
   actualizarFormaPagoReparto,
   asignarRemitosAReparto,
   crearReparto,
@@ -257,9 +256,6 @@ describe("flujo repartos y asignación de remitos", () => {
     const lista = await listarRepartos();
     expect(lista).toHaveLength(1);
     expect(lista[0].valorCentavos).toBe(8000);
-
-    await actualizarEstadoReparto(repartoId, "completado");
-    expect((await obtenerReparto(repartoId))?.estado).toBe("completado");
   });
 
   it("vincula el cliente del Envía al reparto al cobrar en cuenta corriente", async () => {
@@ -359,25 +355,25 @@ describe("flujo repartos y asignación de remitos", () => {
     expect(repartosA[0].formaPago).toBeNull();
   });
 
-  it("ordena los repartos: pendientes arriba y completados abajo, ambos por fecha", async () => {
+  it("ordena los repartos por fecha, los más recientes primero", async () => {
     const clienteId = await crearClienteBasico(14);
 
-    // Pendientes: 10/09 y 11/09 y 13/09.
-    const pendienteViejo = await crearReparto({
+    // Repartos de distintas fechas: 10/09, 11/09 y 13/09.
+    const masViejo = await crearReparto({
       fecha: "2026-09-10",
       clienteId,
       itemsMercaderia: [
         { descripcion: "a", cantidad: 1, precioUnitarioCentavos: 100 },
       ],
     });
-    const pendienteMedio = await crearReparto({
+    const delMedio = await crearReparto({
       fecha: "2026-09-11",
       clienteId,
       itemsMercaderia: [
         { descripcion: "b", cantidad: 1, precioUnitarioCentavos: 100 },
       ],
     });
-    const pendienteNuevo = await crearReparto({
+    const masNuevo = await crearReparto({
       fecha: "2026-09-13",
       clienteId,
       itemsMercaderia: [
@@ -385,27 +381,15 @@ describe("flujo repartos y asignación de remitos", () => {
       ],
     });
 
-    // Completados: 09/09 y 12/09.
-    const completadoViejo = await crearReparto({ fecha: "2026-09-09", clienteId });
-    await actualizarEstadoReparto(completadoViejo, "completado");
-    const completadoNuevo = await crearReparto({ fecha: "2026-09-12", clienteId });
-    await actualizarEstadoReparto(completadoNuevo, "completado");
-
-    // Cancelado con fecha reciente: debe quedar al final de todos modos.
-    const cancelado = await crearReparto({ fecha: "2026-09-15", clienteId });
-    await actualizarEstadoReparto(cancelado, "cancelado");
+    // La fecha más reciente queda primero en la hoja de ruta.
+    const masReciente = await crearReparto({ fecha: "2026-09-15", clienteId });
 
     const lista = await listarRepartos();
     expect(lista.map((r) => r.id)).toEqual([
-      // Activos (pendiente/en curso), del más reciente al más viejo.
-      pendienteNuevo,
-      pendienteMedio,
-      pendienteViejo,
-      // Completados, también del más reciente al más viejo.
-      completadoNuevo,
-      completadoViejo,
-      // Cancelados, después de todo.
-      cancelado,
+      masReciente,
+      masNuevo,
+      delMedio,
+      masViejo,
     ]);
   });
 
@@ -445,7 +429,7 @@ describe("flujo repartos y asignación de remitos", () => {
     expect(porCobrar?.cobrado).toBe(false);
   });
 
-  it("calcula la deuda por cliente (repartos sin cobrar y no cancelados)", async () => {
+  it("calcula la deuda por cliente (repartos sin cobrar)", async () => {
     const clienteA = await crearClienteBasico(11);
     const clienteB = await crearClienteBasico(12);
 
@@ -465,8 +449,8 @@ describe("flujo repartos y asignación de remitos", () => {
       ],
     });
 
-    // A tiene un reparto cobrado y otro cancelado que no suman a la deuda.
-    const cobrado = await crearReparto({
+    // A tiene un reparto cobrado que no suma a la deuda.
+    await crearReparto({
       fecha: "2026-09-16",
       clienteId: clienteA,
       itemsMercaderia: [
@@ -474,15 +458,6 @@ describe("flujo repartos y asignación de remitos", () => {
       ],
       formaPago: "contado",
     });
-    await actualizarFormaPagoReparto(cobrado, "contado");
-    const cancelado = await crearReparto({
-      fecha: "2026-09-17",
-      clienteId: clienteA,
-      itemsMercaderia: [
-        { descripcion: "Paquete", cantidad: 1, precioUnitarioCentavos: 700 },
-      ],
-    });
-    await actualizarEstadoReparto(cancelado, "cancelado");
 
     // B debe $100 (sin cobrar).
     await crearReparto({
@@ -569,30 +544,23 @@ describe("flujo gastos", () => {
 });
 
 describe("métricas del dashboard", () => {
-  it("cuenta repartos de hoy, pendientes de hoy y pendientes en total (acumula fechas anteriores)", async () => {
+  it("cuenta repartos de hoy y los que faltan cobrar (hoy y en total)", async () => {
     const clienteId = await crearClienteBasico(15);
     const hoy = fechaHoyLocal();
 
-    // 3 repartos hoy: uno completado, uno en curso y uno pendiente (default).
-    const completado = await crearReparto({ fecha: hoy, clienteId });
-    await actualizarEstadoReparto(completado, "completado");
-    const enCurso = await crearReparto({ fecha: hoy, clienteId });
-    await actualizarEstadoReparto(enCurso, "en_curso");
+    // 3 repartos hoy: uno cobrado (forma de pago) y dos sin cobrar.
+    await crearReparto({ fecha: hoy, clienteId, formaPago: "contado" });
+    await crearReparto({ fecha: hoy, clienteId });
     await crearReparto({ fecha: hoy, clienteId });
 
-    // Fechas anteriores: un pendiente suma al total, un completado no.
-    const anteriorCompletado = await crearReparto({
-      fecha: "2026-09-01",
-      clienteId,
-    });
-    await actualizarEstadoReparto(anteriorCompletado, "completado");
-    await crearReparto({ fecha: "2026-09-02", clienteId });
+    // Fecha anterior sin cobrar: suma al total de sin cobrar, no al de hoy.
+    await crearReparto({ fecha: "2026-09-01", clienteId });
 
     const metricas = await getMetricasDashboard();
     expect(metricas.repartosHoy).toBe(3);
-    expect(metricas.repartosHoyPendientes).toBe(2);
-    // en_curso + pendiente de hoy + pendiente del 02/09 = 3
-    expect(metricas.repartosPendientesTotal).toBe(3);
+    expect(metricas.repartosHoySinCobrar).toBe(2);
+    // 2 sin cobrar de hoy + 1 del 01/09 = 3
+    expect(metricas.repartosSinCobrarTotal).toBe(3);
   });
 });
 

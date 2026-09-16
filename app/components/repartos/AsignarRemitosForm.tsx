@@ -31,7 +31,7 @@ export function AsignarRemitosForm({
       <input type="hidden" name="reparto_id" value={repartoId} />
       {remitosDisponibles.length === 0 ? (
         <p className="text-sm text-zinc-500">
-          No hay remitos pendientes sin asignar por el momento.
+          No hay remitos sin asignar por el momento.
         </p>
       ) : (
         <div className="max-h-52 space-y-1.5 overflow-y-auto rounded-lg border border-zinc-200 p-3">

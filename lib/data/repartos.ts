@@ -1,7 +1,6 @@
 import { getDb } from "@/lib/db";
 import type { InArgs, InStatement } from "@libsql/core/api";
 import type {
-  EstadoReparto,
   FormaPago,
   Reparto,
   RepartoItem,
@@ -15,7 +14,6 @@ function mapearReparto(fila: Fila): Reparto {
   return {
     id: Number(fila.id),
     fecha: String(fila.fecha),
-    estado: String(fila.estado) as EstadoReparto,
     clienteId: fila.cliente_id != null ? Number(fila.cliente_id) : null,
     clienteNombre: fila.cliente_nombre ? String(fila.cliente_nombre) : null,
     enviadoPor: fila.enviado_por ? String(fila.enviado_por) : null,
@@ -39,7 +37,7 @@ function mapearReparto(fila: Fila): Reparto {
  * del reparto (`reparto_items`), que puede cargarse con o sin remito.
  */
 const SQL_SELECCION_REPARTO = `
-  SELECT rp.id, rp.fecha, rp.estado,
+  SELECT rp.id, rp.fecha,
          rp.cliente_id, c.nombre AS cliente_nombre,
          rp.chofer AS enviado_por, rp.vehiculo AS recibido_por,
          rp.notas AS observaciones, rp.creado_en,
@@ -61,26 +59,80 @@ const SQL_SELECCION_REPARTO = `
  * Lista repartos con el valor total (remitos asignados + mercadería directa)
  * y los remitos asociados (id + número) para mostrar en la columna "Remitos".
  *
- * Orden: primero los repartos activos (pendiente/en curso) ordenados por fecha
- * (más reciente primero), después los completados también por fecha y al final
- * los cancelados. Así el listado arranca con lo que falta hacer.
+ * Orden: por fecha (más reciente primero) y después por id. En la hoja de ruta
+ * diaria se usa `listarRepartosDelDia`, que filtra por fecha.
  */
 export async function listarRepartos(): Promise<Reparto[]> {
   return consultarRepartosCompletos(
     `${SQL_SELECCION_REPARTO}
      GROUP BY rp.id
-     ORDER BY
-       CASE
-         WHEN rp.estado IN ('pendiente', 'en_curso') THEN 0
-         WHEN rp.estado = 'completado' THEN 1
-         ELSE 2
-       END ASC,
-       rp.fecha DESC, rp.id DESC`,
+     ORDER BY rp.fecha DESC, rp.id DESC`,
   );
 }
 
+/** Los repartos de una fecha (la "hoja de ruta" de ese día), en orden de carga. */
+export async function listarRepartosDelDia(fecha: string): Promise<Reparto[]> {
+  return consultarRepartosCompletos(
+    `${SQL_SELECCION_REPARTO}
+     WHERE rp.fecha = ?
+     GROUP BY rp.id
+     ORDER BY rp.id ASC`,
+    [fecha],
+  );
+}
+
+/** Resumen de cobros de un día (hoja de ruta): total, cobrado y por cobrar. */
+export interface ResumenDia {
+  /** Cantidad total de repartos del día. */
+  cantidadTotal: number;
+  /** Cantidad de repartos que ya se cobraron (forma de pago elegida). */
+  cantidadCobrados: number;
+  /** Valor total de la hoja de ruta (suma de todos los repartos del día). */
+  totalCentavos: number;
+  /** Lo que ya se cobró (repartos con forma de pago elegida). */
+  cobradoCentavos: number;
+  /** Lo que todavía falta cobrar del día. */
+  faltaCobrarCentavos: number;
+}
+
+/** Valor de cada reparto del día, para sumar cobrado / por cobrar en SQL (una sola pasada). */
+const SQL_VALOR_POR_REPARTO_DEL_DIA = `
+  SELECT rp.id, rp.cobrado,
+         ((SELECT COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0)
+           FROM remitos rt
+           JOIN remito_items ri ON ri.remito_id = rt.id
+           WHERE rt.reparto_id = rp.id)
+          + (SELECT COALESCE(SUM(mi.cantidad * mi.precio_unitario_centavos), 0)
+             FROM reparto_items mi
+             WHERE mi.reparto_id = rp.id)) AS valor_centavos
+  FROM repartos rp
+  WHERE rp.fecha = ?
+`;
+
+/** Totales del día: cuánto se cobró y cuánto falta cobrar, por separado. */
+export async function resumenDia(fecha: string): Promise<ResumenDia> {
+  const db = await getDb();
+  const resultado = await db.execute(
+    `SELECT COUNT(*) AS cantidad_total,
+            COALESCE(SUM(CASE WHEN cobrado = 1 THEN 1 ELSE 0 END), 0) AS cantidad_cobrados,
+            COALESCE(SUM(valor_centavos), 0) AS total_centavos,
+            COALESCE(SUM(CASE WHEN cobrado = 1 THEN valor_centavos ELSE 0 END), 0) AS cobrado_centavos,
+            COALESCE(SUM(CASE WHEN cobrado = 1 THEN 0 ELSE valor_centavos END), 0) AS falta_centavos
+     FROM (${SQL_VALOR_POR_REPARTO_DEL_DIA}) AS dia`,
+    [fecha],
+  );
+  const f = resultado.rows[0] as Fila;
+  return {
+    cantidadTotal: Number(f.cantidad_total ?? 0),
+    cantidadCobrados: Number(f.cantidad_cobrados ?? 0),
+    totalCentavos: Number(f.total_centavos ?? 0),
+    cobradoCentavos: Number(f.cobrado_centavos ?? 0),
+    faltaCobrarCentavos: Number(f.falta_centavos ?? 0),
+  };
+}
+
 /** Repartos de un cliente para su ficha, con la misma forma que el listado
- *  general: estado, valor, remitos asociados e items de mercadería. */
+ *  general: valor, remitos asociados e items de mercadería. */
 export async function listarRepartosDelCliente(
   clienteId: number,
 ): Promise<Reparto[]> {
@@ -192,7 +244,6 @@ export interface ItemMercaderiaNuevo {
 
 export interface DatosNuevoReparto {
   fecha: string; // YYYY-MM-DD
-  estado?: EstadoReparto;
   /** Cliente vinculado al reparto (campo "Envía"). Puede ser null si el
    *  cliente todavía no está cargado: el reparto se guarda igual sin
    *  vincularlo (el nombre queda en `enviadoPor`). */
@@ -212,12 +263,11 @@ export interface DatosNuevoReparto {
 export async function crearReparto(datos: DatosNuevoReparto): Promise<number> {
   const db = await getDb();
   const resultado = await db.execute(
-    `INSERT INTO repartos (fecha, estado, cliente_id, chofer, vehiculo, notas,
+    `INSERT INTO repartos (fecha, cliente_id, chofer, vehiculo, notas,
                            lleva_remito, forma_pago, cobrado)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       datos.fecha,
-      datos.estado ?? "pendiente",
       datos.clienteId ?? null,
       datos.enviadoPor ?? null,
       datos.recibidoPor ?? null,
@@ -273,15 +323,6 @@ export async function actualizarFormaPagoReparto(
       [formaPago ?? "contado", formaPago ? 1 : 0, id],
     );
   }
-}
-
-/** Actualiza el estado de un reparto. */
-export async function actualizarEstadoReparto(
-  id: number,
-  estado: EstadoReparto,
-): Promise<void> {
-  const db = await getDb();
-  await db.execute("UPDATE repartos SET estado = ? WHERE id = ?", [estado, id]);
 }
 
 /** Devuelve el "Envía" (nombre en texto) y el cliente vinculado de un reparto.
@@ -349,8 +390,8 @@ export async function obtenerReparto(id: number): Promise<Reparto | null> {
   return reparto;
 }
 
-/** Asigna remitos (pendientes) a un reparto. Los remitos ya asignados o
- *  en otro estado se ignoran silenciosamente. */
+/** Asigna remitos (sin reparto) a una hoja de ruta. Los remitos que ya tienen
+ *  reparto se ignoran silenciosamente. */
 export async function asignarRemitosAReparto(
   repartoId: number,
   remitoIds: number[],
@@ -359,7 +400,7 @@ export async function asignarRemitosAReparto(
   const db = await getDb();
   const statements: Array<InStatement> = remitoIds.map((remitoId) => ({
     sql: `UPDATE remitos SET reparto_id = ?
-          WHERE id = ? AND estado = 'pendiente' AND reparto_id IS NULL`,
+          WHERE id = ? AND reparto_id IS NULL`,
     args: [repartoId, remitoId] as InArgs,
   }));
   await db.batch(statements);
@@ -387,8 +428,8 @@ export interface RepartoSeleccion {
   clienteNombre: string | null;
 }
 
-/** Lista los repartos activos (pendiente o en curso) para elegir a cuál emitir
- *  un remito. El remito hereda el cliente del reparto elegido. */
+/** Lista los repartos para elegir a cuál emitir un remito. El remito hereda
+ *  el cliente del reparto elegido. */
 export async function listarRepartosParaSeleccion(): Promise<RepartoSeleccion[]> {
   const db = await getDb();
   const resultado = await db.execute(
@@ -396,7 +437,6 @@ export async function listarRepartosParaSeleccion(): Promise<RepartoSeleccion[]>
             COALESCE(c.nombre, rp.chofer) AS cliente_nombre
      FROM repartos rp
      LEFT JOIN clientes c ON c.id = rp.cliente_id
-     WHERE rp.estado IN ('pendiente', 'en_curso')
      ORDER BY rp.fecha DESC, rp.id DESC`,
   );
   return resultado.rows.map((fila) => {

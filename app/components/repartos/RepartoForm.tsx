@@ -34,9 +34,12 @@ let siguienteKey = 1;
 export function RepartoForm({
   remitosDisponibles,
   clientes,
+  fechaInicial,
 }: {
   remitosDisponibles: RemitoDisponible[];
   clientes: ClienteSeleccion[];
+  /** Fecha del día seleccionado en la Hoja de Ruta; si no viene, hoy. */
+  fechaInicial?: string;
 }) {
   const [estado, formAction, pending] = useActionState(
     crearRepartoAction,
@@ -139,7 +142,7 @@ export function RepartoForm({
             name="fecha"
             type="date"
             required
-            defaultValue={fechaHoyLocal()}
+            defaultValue={fechaInicial ?? fechaHoyLocal()}
             disabled={pending}
           />
         </Field>
@@ -508,13 +511,13 @@ export function RepartoForm({
         htmlFor="remitos-disponibles"
         hint={
           remitosDisponibles.length === 0
-            ? "No hay remitos pendientes sin asignar. Podes crear uno y asignarlo después."
-            : "Seleccioná los remitos pendientes que van en esta hoja de ruta."
+            ? "No hay remitos sin asignar. Podes crear uno y asignarlo después."
+            : "Seleccioná los remitos que van en esta hoja de ruta."
         }
       >
         {remitosDisponibles.length === 0 ? (
           <div className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-400">
-            Aún no hay remitos pendientes sin asignar.
+            Aún no hay remitos sin asignar.
           </div>
         ) : (
           <div className="max-h-60 space-y-1.5 overflow-y-auto rounded-lg border border-zinc-200 p-3">

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { obtenerCliente } from "@/lib/data/clientes";
 import { listarRepartosDelCliente } from "@/lib/data/repartos";
 import { formatFecha, formatPesos } from "@/lib/types";
-import { ETIQUETA_ESTADO_REPARTO, TONE_ESTADO_REPARTO } from "@/lib/estados";
 import { ButtonLink } from "@/app/components/ui/form";
 import {
   Badge,
@@ -16,7 +15,6 @@ import {
   Th,
 } from "@/app/components/ui/display";
 import { ClienteDeleteButton } from "@/app/components/clientes/ClienteDeleteButton";
-import { EstadoRepartoCheckbox } from "@/app/components/repartos/EstadoRepartoCheckbox";
 import { FormaPagoSelect } from "@/app/components/repartos/FormaPagoSelect";
 import { RemitoModal } from "@/app/components/repartos/RemitoModal";
 
@@ -39,7 +37,7 @@ export default async function DetalleClientePage({
   // filtrada por cliente, más el total que adeuda.
   const repartos = await listarRepartosDelCliente(cliente.id);
   const totalAdeudadoCentavos = repartos
-    .filter((reparto) => !reparto.cobrado && reparto.estado !== "cancelado")
+    .filter((reparto) => !reparto.cobrado)
     .reduce((total, reparto) => total + reparto.valorCentavos, 0);
 
   const filas: Array<{ label: string; valor: ReactNode }> = [
@@ -135,11 +133,7 @@ export default async function DetalleClientePage({
           <Table>
             <thead>
               <tr>
-                <Th>
-                  <span className="sr-only">Completado</span>
-                </Th>
                 <Th>Fecha</Th>
-                <Th>Estado</Th>
                 <Th>Recibe</Th>
                 <Th>Observaciones</Th>
                 <Th>Remitos</Th>
@@ -150,12 +144,6 @@ export default async function DetalleClientePage({
             <tbody className="divide-y divide-zinc-100">
               {repartos.map((reparto) => (
                 <tr key={reparto.id} className="hover:bg-zinc-50">
-                  <Td className="align-middle">
-                    <EstadoRepartoCheckbox
-                      repartoId={reparto.id}
-                      estadoActual={reparto.estado}
-                    />
-                  </Td>
                   <Td className="whitespace-nowrap">
                     <Link
                       href={`/repartos/${reparto.id}`}
@@ -163,11 +151,6 @@ export default async function DetalleClientePage({
                     >
                       {formatFecha(reparto.fecha)}
                     </Link>
-                  </Td>
-                  <Td>
-                    <Badge tone={TONE_ESTADO_REPARTO[reparto.estado]}>
-                      {ETIQUETA_ESTADO_REPARTO[reparto.estado]}
-                    </Badge>
                   </Td>
                   <Td>
                     {reparto.recibidoPor ?? (

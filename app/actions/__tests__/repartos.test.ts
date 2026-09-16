@@ -107,7 +107,6 @@ describe("crearRepartoAction", () => {
     expect(obtenerClientePorNombre).toHaveBeenCalledWith("Comercio Nuevo");
     expect(crearReparto).toHaveBeenCalledWith({
       fecha: "2026-09-13",
-      estado: "pendiente",
       clienteId: 42,
       enviadoPor: "Comercio Nuevo",
       recibidoPor: "Chofer",

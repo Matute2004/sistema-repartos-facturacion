@@ -132,19 +132,19 @@ async function TarjetasMetricas({
       href: "/repartos",
       subDetalles: [
         {
-          etiqueta: "Pendientes de hoy",
-          valor: String(metricas.repartosHoyPendientes),
+          etiqueta: "Sin cobrar de hoy",
+          valor: String(metricas.repartosHoySinCobrar),
         },
         {
-          etiqueta: "Pendientes en total",
-          valor: String(metricas.repartosPendientesTotal),
+          etiqueta: "Sin cobrar en total",
+          valor: String(metricas.repartosSinCobrarTotal),
         },
       ],
     },
     {
-      label: "Remitos pendientes de hoy",
-      valor: String(metricas.remitosHoyPendientes),
-      detalle: "Aún en estado pendiente",
+      label: "Remitos emitidos hoy",
+      valor: String(metricas.remitosHoy),
+      detalle: "Comprobantes del día",
       href: "/remitos",
     },
     {

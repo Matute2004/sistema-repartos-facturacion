@@ -5,7 +5,6 @@ import { formatFecha, formatPesos } from "@/lib/types";
 import Link from "next/link";
 import { ButtonLink } from "@/app/components/ui/form";
 import {
-  Badge,
   Card,
   CardHeader,
   PageHeader,
@@ -13,10 +12,6 @@ import {
   Td,
   Th,
 } from "@/app/components/ui/display";
-import {
-  ETIQUETA_ESTADO_REMITO,
-  TONE_ESTADO_REMITO,
-} from "@/lib/estados";
 
 export const metadata = { title: "Remitos" };
 
@@ -92,7 +87,6 @@ async function TablaRemitos() {
           <Th>N°</Th>
           <Th>Cliente</Th>
           <Th>Fecha</Th>
-          <Th>Estado</Th>
           <Th>Observaciones</Th>
           <Th className="text-right">Valor</Th>
         </tr>
@@ -114,11 +108,6 @@ async function TablaRemitos() {
               )}
             </Td>
             <Td className="whitespace-nowrap">{formatFecha(remito.fecha)}</Td>
-            <Td>
-              <Badge tone={TONE_ESTADO_REMITO[remito.estado]}>
-                {ETIQUETA_ESTADO_REMITO[remito.estado]}
-              </Badge>
-            </Td>
             <Td>
               {remito.observaciones ?? (
                 <span className="text-zinc-400">—</span>
