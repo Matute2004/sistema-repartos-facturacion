@@ -98,16 +98,13 @@ export default async function DetalleRepartoPage({
                 Forma de pago
               </p>
               {reparto.formaPago ? (
-                <p className="mt-1 text-sm font-medium text-zinc-900">
+                <p className="mt-1 text-sm font-medium text-emerald-700">
                   {ETIQUETA_FORMA_PAGO[reparto.formaPago]}
-                  {!reparto.cobrado && (
-                    <span className="ml-1 text-xs text-zinc-400">
-                      (sin cobrar)
-                    </span>
-                  )}
                 </p>
               ) : (
-                <p className="mt-1 text-sm text-zinc-400">Por cobrar</p>
+                <p className="mt-1 text-sm font-medium text-red-600">
+                  Por cobrar
+                </p>
               )}
             </div>
             <div>

@@ -93,7 +93,7 @@ export function FormaPagoSelect({
           if (!pending) alCambiar(evento.target.value);
         }}
         className={`w-auto min-w-36 cursor-pointer py-1.5 ${
-          valorActual ? "" : "text-zinc-400"
+          valorActual ? "text-emerald-700" : "text-red-600"
         }`}
         aria-label="Forma de pago del reparto"
         title={

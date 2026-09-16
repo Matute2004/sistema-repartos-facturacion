@@ -84,7 +84,13 @@ export async function crearRemitoAction(
 
   let remitoId: number;
   try {
-    const numero = await proximoNumeroRemito();
+    // N° de remito: si se escribe a mano (`numero`) se usa ese; si se deja
+    // vacío, sigue la correlativa automática (`proximoNumeroRemito`).
+    const numeroManual = Number(texto(formData, "numero"));
+    const numero =
+      Number.isInteger(numeroManual) && numeroManual > 0
+        ? numeroManual
+        : await proximoNumeroRemito();
     remitoId = await crearRemito({
       numero,
       repartoId,

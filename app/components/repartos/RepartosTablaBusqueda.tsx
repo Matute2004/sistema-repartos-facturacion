@@ -122,12 +122,24 @@ export function RepartosTablaBusqueda({ repartos }: { repartos: Reparto[] }) {
                     <RemitoModal remitos={reparto.remitos} />
                   )}
                 </Td>
-                <Td
-                  className={`whitespace-nowrap text-right font-semibold ${
-                    reparto.formaPago != null ? "text-emerald-700" : "text-red-600"
-                  }`}
-                >
-                  {formatPesos(reparto.valorCentavos)}
+                <Td className="whitespace-nowrap text-right">
+                  <span
+                    className={`inline-flex items-center gap-1.5 font-semibold ${
+                      reparto.formaPago != null
+                        ? "text-emerald-700"
+                        : "text-red-600"
+                    }`}
+                  >
+                    <span
+                      className={`size-2.5 shrink-0 rounded-full ${
+                        reparto.formaPago != null
+                          ? "bg-emerald-600"
+                          : "bg-red-500"
+                      }`}
+                      aria-hidden="true"
+                    />
+                    {formatPesos(reparto.valorCentavos)}
+                  </span>
                 </Td>
                 <Td className="whitespace-nowrap">
                   <FormaPagoSelect

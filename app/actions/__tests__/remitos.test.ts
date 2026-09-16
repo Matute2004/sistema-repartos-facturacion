@@ -110,4 +110,18 @@ describe("crearRemitoAction", () => {
     expect(resultado.error).toContain("línea");
     expect(crearRemito).not.toHaveBeenCalled();
   });
+it("usa el N° de remito escrito a mano en vez de la correlativa automática", async () => {
+    const formData = formConItems();
+    formData.set("numero", "42");
+
+    await expect(crearRemitoAction(estadoInicial, formData)).rejects.toThrow(
+      SENAL_REDIRECT,
+    );
+
+    expect(proximoNumeroRemito).not.toHaveBeenCalled();
+    expect(crearRemito).toHaveBeenCalledWith(
+      expect.objectContaining({ numero: 42 }),
+    );
+    expect(redirect).toHaveBeenCalledWith("/remitos/100");
+  });
 });

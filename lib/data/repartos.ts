@@ -70,13 +70,15 @@ export async function listarRepartos(): Promise<Reparto[]> {
   );
 }
 
-/** Los repartos de una fecha (la "hoja de ruta" de ese día), en orden de carga. */
+/** Los repartos de una fecha (la "hoja de ruta" de ese día). Se ordenan para
+ *  que los que todavía no se cobraron («Por cobrar») queden siempre arriba y
+ *  los cobrados abajo; dentro de cada grupo se mantiene el orden de carga. */
 export async function listarRepartosDelDia(fecha: string): Promise<Reparto[]> {
   return consultarRepartosCompletos(
     `${SQL_SELECCION_REPARTO}
      WHERE rp.fecha = ?
      GROUP BY rp.id
-     ORDER BY rp.id ASC`,
+     ORDER BY rp.cobrado ASC, rp.id ASC`,
     [fecha],
   );
 }

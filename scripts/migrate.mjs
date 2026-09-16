@@ -155,6 +155,10 @@ try {
   // usuarios con rol 'operador' de versiones previas, se los promueve.
   await db.execute("UPDATE usuarios SET rol = 'admin' WHERE rol = 'operador'");
 
+  // Las reconstrucciones de `repartos` (RENAME) pueden dejar a `reparto_items`
+  // apuntando a la tabla vieja ya borrada; se corrige si pasó (idempotente).
+  await repararRepartoItems(db);
+
   const resultado = await db.execute(
     "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
   );
@@ -177,6 +181,59 @@ try {
 // Migración de remitos: pasan a pertenecer al reparto
 // ----------------------------------------------------------------------------
 
+/**
+ * Repara la clave foránea de `reparto_items` si quedó apuntando a una tabla
+ * que ya no existe. Pasó en bases viejas: al reconstruir `repartos` con
+ * RENAME (`repartos_viejo` → `repartos`), SQLite actualizó la referencia de
+ * `reparto_items` apuntándola al nombre viejo, que después se borró. Desde
+ * entonces cualquier INSERT de mercadería directa fallaba con
+ * "no such table: main.repartos_viejo" (el guardado del reparto daba error).
+ *
+ * Idempotente: si la FK ya apunta a `repartos(id)`, no toca nada.
+ */
+async function repararRepartoItems(db) {
+  const resultado = await db.execute(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'reparto_items'",
+  );
+  if (resultado.rows.length === 0) return;
+  const sql = String(resultado.rows[0].sql ?? "");
+
+  const referencias = [...sql.matchAll(/REFERENCES\s+(?:"([^"]+)"|([\w]+))\(/g)];
+  const tablasReferenciadas = referencias.map((m) => m[1] ?? m[2]);
+  const apuntaMal = tablasReferenciadas.filter(
+    (tabla) => tabla !== "repartos",
+  );
+  if (apuntaMal.length === 0) return;
+
+  const statements = [
+    { sql: "DROP TABLE IF EXISTS reparto_items_viejo", args: [] },
+    { sql: "DROP TABLE IF EXISTS reparto_items_nuevo", args: [] },
+    {
+      sql: `CREATE TABLE reparto_items_nuevo (
+        id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+        reparto_id              INTEGER NOT NULL REFERENCES repartos(id) ON DELETE CASCADE,
+        descripcion             TEXT NOT NULL,
+        cantidad                REAL NOT NULL DEFAULT 1 CHECK (cantidad > 0),
+        precio_unitario_centavos INTEGER NOT NULL DEFAULT 0 CHECK (precio_unitario_centavos >= 0)
+      )`,
+      args: [],
+    },
+    {
+      sql: `INSERT INTO reparto_items_nuevo (id, reparto_id, descripcion, cantidad, precio_unitario_centavos)
+            SELECT id, reparto_id, descripcion, cantidad, precio_unitario_centavos FROM reparto_items`,
+      args: [],
+    },
+    { sql: "DROP INDEX IF EXISTS idx_reparto_items_reparto", args: [] },
+    { sql: "ALTER TABLE reparto_items RENAME TO reparto_items_viejo", args: [] },
+    { sql: "ALTER TABLE reparto_items_nuevo RENAME TO reparto_items", args: [] },
+    { sql: "DROP TABLE reparto_items_viejo", args: [] },
+    {
+      sql: "CREATE INDEX IF NOT EXISTS idx_reparto_items_reparto ON reparto_items(reparto_id)",
+      args: [],
+    },
+  ];
+  await db.batch(statements);
+}
 /**
  * Reconstruye la tabla `remitos` sin la columna `cliente_id`.
  *

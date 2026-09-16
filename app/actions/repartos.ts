@@ -182,9 +182,14 @@ export async function crearRepartoAction(
     });
 
     // Si lleva remito, lo emitimos en el mismo alta y queda asociado al reparto
-    // (el cliente se resuelve a través del reparto).
+    // (el cliente se resuelve a través del reparto). El N° se puede escribir a
+    // mano (`remito_numero`); si no se carga, sigue la correlativa automática.
     if (llevaRemito && repartoId) {
-      const numero = await proximoNumeroRemito();
+      const numeroManual = Number(texto(formData, "remito_numero"));
+      const numero =
+        Number.isInteger(numeroManual) && numeroManual > 0
+          ? numeroManual
+          : await proximoNumeroRemito();
       await crearRemito({
         numero,
         fecha,

@@ -110,11 +110,17 @@ export function RemitoForm({
             disabled={pending}
           />
         </Field>
-        <Field label="Número de remito" htmlFor="numero">
+        <Field
+          label="Número de remito"
+          htmlFor="numero"
+          hint={`Si lo dejás vacío se asigna el siguiente automáticamente: N° ${String(numeroProximo).padStart(4, "0")}`}
+        >
           <Input
             id="numero"
-            value={`N° ${String(numeroProximo).padStart(4, "0")}`}
-            disabled
+            name="numero"
+            inputMode="numeric"
+            defaultValue={numeroProximo}
+            disabled={pending}
           />
         </Field>
       </div>

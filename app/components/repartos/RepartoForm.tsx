@@ -370,6 +370,22 @@ export function RepartoForm({
             asignado a este reparto.
           </p>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Número de remito"
+              htmlFor="remito_numero"
+              hint="Si lo dejás vacío se asigna el próximo número automáticamente."
+            >
+              <Input
+                id="remito_numero"
+                name="remito_numero"
+                inputMode="numeric"
+                placeholder="Automático…"
+                disabled={pending}
+              />
+            </Field>
+          </div>
+
           {remitoItems.length === 0 && (
             <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-400">
               Todavía no hay líneas. Agregá al menos una.

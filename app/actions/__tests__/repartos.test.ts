@@ -266,6 +266,26 @@ describe("crearRepartoAction", () => {
     });
   });
 
+  it("usa el N° de remito escrito a mano al emitir el remito del reparto", async () => {
+    const formData = new FormData();
+    formData.set("fecha", "2026-09-13");
+    formData.set("enviado_por", "Cliente Existe");
+    formData.set("lleva_remito", "on");
+    formData.set("remito_numero", "321");
+    formData.append("item_descripcion", "Caja de vino");
+    formData.append("item_cantidad", "1");
+    formData.append("item_precio", "2.500,00");
+
+    await expect(crearRepartoAction(estadoInicial, formData)).rejects.toThrow(
+      SENAL_REDIRECT,
+    );
+
+    expect(proximoNumeroRemito).not.toHaveBeenCalled();
+    expect(crearRemito).toHaveBeenCalledWith(
+      expect.objectContaining({ numero: 321 }),
+    );
+  });
+
   it("guarda el reparto sin vincular ni crear cliente cuando el nombre no está en la lista", async () => {
     obtenerClientePorNombre.mockResolvedValue(null);
     const formData = new FormData();
