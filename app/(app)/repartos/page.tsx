@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { cacheLife, cacheTag } from "next/cache";
 import {
   listarDiasConRepartosDelMes,
   listarRepartosDelDia,
   resumenDia,
-  type ResumenDia,
 } from "@/lib/data/repartos";
 import { listarGastosDelDia } from "@/lib/data/gastos";
 import {
@@ -24,7 +22,6 @@ import {
 } from "@/app/components/ui/display";
 import { RepartosTablaBusqueda } from "@/app/components/repartos/RepartosTablaBusqueda";
 import { CalendarioHojaRuta } from "@/app/components/repartos/CalendarioHojaRuta";
-import type { Gasto, Reparto } from "@/lib/types";
 
 export const metadata = { title: "Hoja de Ruta" };
 
@@ -78,7 +75,7 @@ async function HojaDeRutaDelDia({
   const esHoy = fecha === hoy;
   const diaAnterior = sumarDias(fecha, -1);
   const diaSiguiente = sumarDias(fecha, 1);
-  const diasConRepartos = await cargarDiasConRepartos(fecha.slice(0, 7));
+  const diasConRepartos = await listarDiasConRepartosDelMes(fecha.slice(0, 7));
 
   return (
     <div>
@@ -131,9 +128,9 @@ async function HojaDeRutaDelDia({
 /** Resumen del día (cobrado + gastos + rinde) y la tabla de repartos. */
 async function ResumenYTablaDelDia({ fecha }: { fecha: string }) {
   const [resumen, repartos, gastos] = await Promise.all([
-    cargarResumenDelDia(fecha),
-    cargarRepartosDelDia(fecha),
-    cargarGastosDelDia(fecha),
+    resumenDia(fecha),
+    listarRepartosDelDia(fecha),
+    listarGastosDelDia(fecha),
   ]);
   const gastosCentavos = gastos.reduce(
     (total, gasto) => total + gasto.montoCentavos,
@@ -261,40 +258,5 @@ async function ResumenYTablaDelDia({ fecha }: { fecha: string }) {
       </Card>
     </div>
   );
-}
-
-/** Fechas con repartos del mes, cacheadas ~1 min por mes. */
-async function cargarDiasConRepartos(mes: string): Promise<string[]> {
-  "use cache";
-  cacheLife({ stale: 30, revalidate: 60 });
-  cacheTag("repartos");
-  return listarDiasConRepartosDelMes(mes);
-}
-
-/** Repartos del día (con valor, remitos e items), cacheados ~1 min por fecha. */
-async function cargarRepartosDelDia(fecha: string): Promise<Reparto[]> {
-  "use cache";
-  cacheLife({ stale: 30, revalidate: 60 });
-  cacheTag("repartos");
-  cacheTag("remitos");
-  cacheTag("clientes");
-  return listarRepartosDelDia(fecha);
-}
-
-/** Gastos del día, cacheados ~1 min por fecha. */
-async function cargarGastosDelDia(fecha: string): Promise<Gasto[]> {
-  "use cache";
-  cacheLife({ stale: 30, revalidate: 60 });
-  cacheTag("gastos");
-  return listarGastosDelDia(fecha);
-}
-
-/** Resumen del día (total, cobrado y falta cobrar), cacheados ~1 min por fecha. */
-async function cargarResumenDelDia(fecha: string): Promise<ResumenDia> {
-  "use cache";
-  cacheLife({ stale: 30, revalidate: 60 });
-  cacheTag("repartos");
-  cacheTag("remitos");
-  return resumenDia(fecha);
 }
 }
