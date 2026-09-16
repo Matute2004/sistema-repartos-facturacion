@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { obtenerCliente } from "@/lib/data/clientes";
 import { listarRepartosDelCliente } from "@/lib/data/repartos";
-import { formatFecha, formatPesos } from "@/lib/types";
+import { formatCuit, formatFecha, formatPesos } from "@/lib/types";
 import { ButtonLink } from "@/app/components/ui/form";
 import {
   Badge,
@@ -54,7 +54,7 @@ export default async function DetalleClientePage({
         <span className="text-zinc-400">—</span>
       ),
     },
-    { label: "CUIT / CUIL", valor: cliente.cuit ? <Badge tone="sky">{cliente.cuit}</Badge> : <span className="text-zinc-400">No cargado</span> },
+    { label: "CUIT / CUIL", valor: cliente.cuit ? <Badge tone="sky">{formatCuit(cliente.cuit)}</Badge> : <span className="text-zinc-400">No cargado</span> },
     { label: "Domicilio", valor: [cliente.direccion, cliente.localidad].filter(Boolean).join(", ") || "—" },
     { label: "Teléfono", valor: cliente.telefono ?? "—" },
     { label: "Email", valor: cliente.email ?? "—" },

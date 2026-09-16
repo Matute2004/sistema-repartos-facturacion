@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   fechaHoyLocal,
+  formatCuit,
   formatFecha,
   formatKilometros,
   formatPesos,
@@ -60,6 +61,24 @@ describe("formatFecha", () => {
 
   it("devuelve el mismo string si la fecha es inválida", () => {
     expect(formatFecha("no-es-fecha")).toBe("no-es-fecha");
+  });
+});
+
+describe("formatCuit", () => {
+  it("formatea 11 dígitos como XX-XXXXXXXX-X", () => {
+    expect(formatCuit("33714403309")).toBe("33-71440330-9");
+  });
+
+  it("tolera guiones, espacios y puntos previos", () => {
+    expect(formatCuit("33-71440330-9")).toBe("33-71440330-9");
+    expect(formatCuit(" 33 71440330 9 ")).toBe("33-71440330-9");
+    expect(formatCuit("33.71440330.9")).toBe("33-71440330-9");
+  });
+
+  it("no altera valores sin 11 dígitos", () => {
+    expect(formatCuit("3371440330")).toBe("3371440330");
+    expect(formatCuit("abc")).toBe("abc");
+    expect(formatCuit("")).toBe("");
   });
 });
 

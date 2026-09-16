@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { formatFecha, formatPesos } from "@/lib/types";
+import { formatCuit, formatFecha, formatPesos } from "@/lib/types";
 import { Button } from "@/app/components/ui/form";
 
 interface RemitoResumen {
@@ -143,7 +143,7 @@ export function RemitoModal({ remitos }: { remitos: RemitoResumen[] }) {
                     </p>
                   )}
                   {abierto.cliente.cuit && (
-                    <p>CUIT/CUIL: {abierto.cliente.cuit}</p>
+                    <p>CUIT/CUIL: {formatCuit(abierto.cliente.cuit)}</p>
                   )}
                   {abierto.cliente.telefono && (
                     <p>Tel: {abierto.cliente.telefono}</p>

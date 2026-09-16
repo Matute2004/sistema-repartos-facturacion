@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { obtenerRemitoCompleto } from "@/lib/data/remitos";
-import { formatFecha, formatPesos } from "@/lib/types";
+import { formatCuit, formatFecha, formatPesos } from "@/lib/types";
 import { ButtonLink } from "@/app/components/ui/form";
 import { Card, PageHeader } from "@/app/components/ui/display";
 import { RemitoDeleteButton } from "@/app/components/remitos/RemitoDeleteButton";
@@ -112,7 +112,9 @@ export default async function DetalleRemitoPage({
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   CUIT / CUIL
                 </p>
-                <p className="mt-1 text-sm text-zinc-900">{cliente.cuit}</p>
+                <p className="mt-1 text-sm text-zinc-900">
+                  {formatCuit(cliente.cuit)}
+                </p>
               </>
             )}
             {cliente?.telefono && (

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { ClienteResumen } from "@/lib/data/clientes";
-import { formatPesos } from "@/lib/types";
+import { formatCuit, formatPesos } from "@/lib/types";
 import { Badge, Table, Td, Th } from "@/app/components/ui/display";
 import { Input } from "@/app/components/ui/form";
 
@@ -122,7 +122,11 @@ export function ClientesTablaBusqueda({
                     )}
                   </Td>
                   <Td>
-                    {cliente.cuit ?? (
+                    {cliente.cuit ? (
+                      <span className="whitespace-nowrap">
+                        {formatCuit(cliente.cuit)}
+                      </span>
+                    ) : (
                       <Badge tone="zinc">Sin CUIT</Badge>
                     )}
                   </Td>

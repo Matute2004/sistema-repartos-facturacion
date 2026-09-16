@@ -240,6 +240,18 @@ export function formatFecha(iso: string): string {
 }
 
 /**
+ * Formatea un CUIT / CUIL argentino como XX-XXXXXXXX-X. El valor guardado puede
+ * llegar con o sin guiones y espacios (ej: "33714403309" -> "33-714403309-9").
+ * Si no tiene exactamente 11 dígitos, se devuelve tal cual para no adulterar
+ * datos no estándar.
+ */
+export function formatCuit(cuit: string): string {
+  const digitos = cuit.replace(/\D/g, "");
+  if (digitos.length !== 11) return cuit;
+  return `${digitos.slice(0, 2)}-${digitos.slice(2, 10)}-${digitos.slice(10)}`;
+}
+
+/**
  * Zona horaria de los usuarios del sistema (Argentina). El "día de trabajo"
  * se calcula siempre con este reloj para que no dependa del horario del
  * servidor de hosting (suele estar en UTC y puede mostrar el día siguiente).
