@@ -16,7 +16,6 @@ interface DetalleRemito {
   remito: {
     id: number;
     numero: number;
-    clienteId: number;
     repartoId: number | null;
     fecha: string;
     estado: "pendiente" | "entregado" | "cancelado";
@@ -24,6 +23,11 @@ interface DetalleRemito {
     valorCentavos: number;
     creadoEn: string;
   };
+  reparto: {
+    id: number;
+    fecha: string;
+    enviadoPor: string | null;
+  } | null;
   cliente: {
     id: number;
     nombre: string;
@@ -31,7 +35,9 @@ interface DetalleRemito {
     direccion: string | null;
     localidad: string | null;
     telefono: string | null;
-  };
+  } | null;
+  /** Nombre visible: el del cliente vinculado al reparto o el texto "Envía". */
+  clienteNombre: string | null;
   items: Array<{
     id: number;
     remitoId: number;
@@ -101,7 +107,7 @@ export function RemitoModal({ remitos }: { remitos: RemitoResumen[] }) {
                   Remito N° {String(abierto.remito.numero).padStart(4, "0")}
                 </h2>
                 <p className="mt-0.5 text-sm text-zinc-500">
-                  {abierto.cliente.nombre} · emitido el{" "}
+                  {abierto.clienteNombre ?? "Sin reparto"} · emitido el{" "}
                   {formatFecha(abierto.remito.fecha)}
                 </p>
               </div>
@@ -129,22 +135,27 @@ export function RemitoModal({ remitos }: { remitos: RemitoResumen[] }) {
               </p>
             )}
 
-            {(abierto.cliente.direccion ||
-              abierto.cliente.cuit ||
-              abierto.cliente.telefono) && (
-              <div className="mt-3 space-y-1 rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
-                {abierto.cliente.direccion && (
-                  <p>
-                    {abierto.cliente.direccion}
-                    {abierto.cliente.localidad
-                      ? `, ${abierto.cliente.localidad}`
-                      : ""}
-                  </p>
-                )}
-                {abierto.cliente.cuit && <p>CUIT/CUIL: {abierto.cliente.cuit}</p>}
-                {abierto.cliente.telefono && <p>Tel: {abierto.cliente.telefono}</p>}
-              </div>
-            )}
+            {abierto.cliente &&
+              (abierto.cliente.direccion ||
+                abierto.cliente.cuit ||
+                abierto.cliente.telefono) && (
+                <div className="mt-3 space-y-1 rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+                  {abierto.cliente.direccion && (
+                    <p>
+                      {abierto.cliente.direccion}
+                      {abierto.cliente.localidad
+                        ? `, ${abierto.cliente.localidad}`
+                        : ""}
+                    </p>
+                  )}
+                  {abierto.cliente.cuit && (
+                    <p>CUIT/CUIL: {abierto.cliente.cuit}</p>
+                  )}
+                  {abierto.cliente.telefono && (
+                    <p>Tel: {abierto.cliente.telefono}</p>
+                  )}
+                </div>
+              )}
 
             <table className="mt-4 w-full text-sm">
               <thead>

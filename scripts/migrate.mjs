@@ -118,6 +118,12 @@ try {
     "UPDATE repartos SET cobrado = 1 WHERE forma_pago IN ('cuenta_corriente', 'debito', 'cheque')",
   );
 
+  // Los remitos pasan a pertenecer al reparto (el cliente sale del reparto):
+  // elimina la columna cliente_id de remitos conservando los datos. Debe
+  // correrse después del schema para que las bases nuevas ya vengan sin la
+  // columna y no haga nada.
+  await reconstruirRemitosSinCliente(db);
+
   // Rol único: el sistema opera solo con administradores. Si quedaron
   // usuarios con rol 'operador' de versiones previas, se los promueve.
   await db.execute("UPDATE usuarios SET rol = 'admin' WHERE rol = 'operador'");
@@ -138,6 +144,99 @@ try {
   process.exit(1);
 } finally {
   db.close();
+}
+
+// ----------------------------------------------------------------------------
+// Migración de remitos: pasan a pertenecer al reparto
+// ----------------------------------------------------------------------------
+
+/**
+ * Reconstruye la tabla `remitos` sin la columna `cliente_id`.
+ *
+ * Antes el remito se emitía a nombre de un cliente (remitos.cliente_id NOT NULL
+ * ON DELETE RESTRICT) y eso impedía borrar clientes con remitos. A partir de
+ * acá el remito pertenece a un reparto y el cliente se resuelve a través del
+ * reparto, así que la columna se elimina conservando los datos.
+ *
+ * Se hace con un intercambio de tablas (RENAME) y NO se desactiva foreign_keys
+ * (Turso por HTTP no permite cambiarlo); funciona igual con las claves activadas.
+ * Cada paso se ejecuta en un solo `batch` (atómico en libsql).
+ */
+async function reconstruirRemitosSinCliente(db) {
+  const info = await db.execute(
+    "SELECT name FROM pragma_table_info('remitos') WHERE name = 'cliente_id'",
+  );
+  if (info.rows.length === 0) {
+    // Ya reconstruida. Si un run anterior quedó a medias, limpiamos restos.
+    await db.execute("DROP TABLE IF EXISTS remito_items_viejo");
+    await db.execute("DROP TABLE IF EXISTS remitos_viejo");
+    return;
+  }
+
+  const statements = [
+    { sql: "DROP TABLE IF EXISTS remito_items_viejo", args: [] },
+    { sql: "DROP TABLE IF EXISTS remitos_viejo", args: [] },
+    { sql: "DROP TABLE IF EXISTS remito_items_nuevo", args: [] },
+    { sql: "DROP TABLE IF EXISTS remitos_nuevo", args: [] },
+
+    {
+      sql: `CREATE TABLE remitos_nuevo (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        numero         INTEGER NOT NULL,
+        reparto_id     INTEGER REFERENCES repartos(id) ON DELETE SET NULL,
+        fecha          TEXT NOT NULL DEFAULT (date('now')),
+        estado         TEXT NOT NULL DEFAULT 'pendiente'
+                       CHECK (estado IN ('pendiente', 'entregado', 'cancelado')),
+        observaciones  TEXT,
+        creado_en      TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (numero)
+      )`,
+      args: [],
+    },
+    {
+      sql: `CREATE TABLE remito_items_nuevo (
+        id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+        remito_id                INTEGER NOT NULL REFERENCES remitos_nuevo(id) ON DELETE CASCADE,
+        descripcion              TEXT NOT NULL,
+        cantidad                 REAL NOT NULL DEFAULT 1 CHECK (cantidad > 0),
+        precio_unitario_centavos INTEGER NOT NULL DEFAULT 0 CHECK (precio_unitario_centavos >= 0)
+      )`,
+      args: [],
+    },
+
+    // Copiamos los datos antes de borrar nada (una falla a mitad no pierde nada).
+    {
+      sql: `INSERT INTO remitos_nuevo (id, numero, reparto_id, fecha, estado, observaciones, creado_en)
+            SELECT id, numero, reparto_id, fecha, estado, observaciones, creado_en FROM remitos`,
+      args: [],
+    },
+    {
+      sql: `INSERT INTO remito_items_nuevo (id, remito_id, descripcion, cantidad, precio_unitario_centavos)
+            SELECT id, remito_id, descripcion, cantidad, precio_unitario_centavos FROM remito_items`,
+      args: [],
+    },
+
+    { sql: "DROP INDEX IF EXISTS idx_remitos_cliente", args: [] },
+    { sql: "DROP INDEX IF EXISTS idx_remitos_reparto", args: [] },
+    { sql: "DROP INDEX IF EXISTS idx_remitos_estado_reparto", args: [] },
+    { sql: "DROP INDEX IF EXISTS idx_remitos_fecha_estado", args: [] },
+
+    { sql: "ALTER TABLE remitos RENAME TO remitos_viejo", args: [] },
+    { sql: "ALTER TABLE remito_items RENAME TO remito_items_viejo", args: [] },
+    { sql: "ALTER TABLE remitos_nuevo RENAME TO remitos", args: [] },
+    { sql: "ALTER TABLE remito_items_nuevo RENAME TO remito_items", args: [] },
+
+    { sql: "DROP TABLE remito_items_viejo", args: [] },
+    { sql: "DROP TABLE remitos_viejo", args: [] },
+
+    { sql: "CREATE INDEX IF NOT EXISTS idx_remitos_reparto ON remitos(reparto_id)", args: [] },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_remitos_estado_reparto ON remitos(estado, reparto_id)", args: [] },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_remitos_fecha_estado ON remitos(fecha, estado)", args: [] },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_remito_items_remito ON remito_items(remito_id)", args: [] },
+  ];
+
+  await db.batch(statements);
+  console.log("  - remitos reconstruidos sin cliente_id (el cliente sale del reparto)");
 }
 
 // ----------------------------------------------------------------------------

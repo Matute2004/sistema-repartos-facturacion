@@ -51,7 +51,7 @@ beforeEach(() => {
 
 function formConItems(): FormData {
   const formData = new FormData();
-  formData.set("cliente_id", "5");
+  formData.set("reparto_id", "5");
   formData.set("fecha", "2026-09-13");
   // append() acumula valores repetidos para que getAll() devuelva ambos.
   formData.append("item_descripcion", "Caja de agua");
@@ -67,7 +67,7 @@ describe("crearRemitoAction", () => {
   it("exige sesión admin antes de validar (defensa en profundidad)", async () => {
     const resultado = await crearRemitoAction(estadoInicial, new FormData());
     expect(exigirAdminMock).toHaveBeenCalledTimes(1);
-    expect(resultado.error).toContain("cliente");
+    expect(resultado.error).toContain("reparto");
   });
 
   it("filtra líneas inválidas, calcula el N° y delega en la capa de datos", async () => {
@@ -79,7 +79,7 @@ describe("crearRemitoAction", () => {
     expect(crearRemito).toHaveBeenCalledTimes(1);
     expect(crearRemito).toHaveBeenCalledWith({
       numero: 7,
-      clienteId: 5,
+      repartoId: 5,
       fecha: "2026-09-13",
       observaciones: undefined,
       // La línea con cantidad 0 se descarta.
@@ -92,18 +92,18 @@ describe("crearRemitoAction", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/repartos");
   });
 
-  it("valida que exista el cliente", async () => {
+  it("valida que exista el reparto", async () => {
     const formData = formConItems();
-    formData.set("cliente_id", "0");
+    formData.set("reparto_id", "0");
 
     const resultado = await crearRemitoAction(estadoInicial, formData);
-    expect(resultado.error).toContain("cliente");
+    expect(resultado.error).toContain("reparto");
     expect(crearRemito).not.toHaveBeenCalled();
   });
 
   it("valida que haya al menos una línea con cantidad > 0", async () => {
     const formData = new FormData();
-    formData.set("cliente_id", "5");
+    formData.set("reparto_id", "5");
     formData.set("fecha", "2026-09-13");
     formData.set("item_descripcion", "");
     formData.set("item_cantidad", "1");

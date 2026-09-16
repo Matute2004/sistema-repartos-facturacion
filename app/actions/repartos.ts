@@ -142,22 +142,18 @@ export async function crearRepartoAction(
 
   try {
     // "Envía" se elige con el buscador de clientes (trae `cliente_id`) o por
-    // nombre. El cliente tiene que estar en la lista de clientes: si no está
-    // registrado, no se crea ni el cliente ni el reparto.
+    // nombre. El cliente puede estar en la lista, o ser un cliente que todavía
+    // no está cargado (no es un cliente fijo): en ese caso el reparto se crea
+    // igual, con el nombre en "Envía", pero sin vincular cliente ni crear uno.
     const clienteIdEnviado = Number(formData.get("cliente_id"));
-    let clienteId: number;
-    if (Number.isInteger(clienteIdEnviado) && clienteIdEnviado > 0) {
-      clienteId = clienteIdEnviado;
-    } else {
-      const clienteEncontrado = await obtenerClientePorNombre(nombreEnvia);
-      if (clienteEncontrado == null) {
-        return {
-          error: `El cliente «${nombreEnvia}» no está registrado en la lista de clientes. Creálo primero en la sección Clientes.`,
-        };
-      }
-      clienteId = clienteEncontrado;
-    }
+    const clienteId =
+      Number.isInteger(clienteIdEnviado) && clienteIdEnviado > 0
+        ? clienteIdEnviado
+        : await obtenerClientePorNombre(nombreEnvia);
 
+    // El remito ya no se emite a nombre de un cliente: queda asociado al
+    // reparto y el cliente sale del reparto. Por eso un reparto puede llevar
+    // remito aunque el cliente (Envía) no esté en la lista, sin crear nada.
     const repartoId = await crearReparto({
       fecha,
       estado: "pendiente",
@@ -172,12 +168,12 @@ export async function crearRepartoAction(
       itemsMercaderia: itemsRepartoDelFormulario(formData),
     });
 
-    // Si lleva remito, lo emitimos en el mismo alta y queda asociado al cliente.
+    // Si lleva remito, lo emitimos en el mismo alta y queda asociado al reparto
+    // (el cliente se resuelve a través del reparto).
     if (llevaRemito && repartoId) {
       const numero = await proximoNumeroRemito();
       await crearRemito({
         numero,
-        clienteId,
         fecha,
         repartoId,
         observaciones: textoOpcional(formData, "remito_observaciones"),

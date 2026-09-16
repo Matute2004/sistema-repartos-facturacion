@@ -142,7 +142,7 @@ export async function eliminarClienteAction(
   } catch (error) {
     console.error("[clientes] error al eliminar:", error);
     return {
-      error: "No se pudo eliminar el cliente. Puede que tenga remitos asociados.",
+      error: "No se pudo eliminar el cliente. Puede que esté vinculado a repartos.",
     };
   }
 

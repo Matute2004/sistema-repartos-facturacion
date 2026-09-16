@@ -200,8 +200,9 @@ function normalizarNombre(nombre: string): string {
 
 /**
  * Busca un cliente por nombre y devuelve su id, o null si todavía no está
- * registrado. No lo crea: los repartos solo se pueden guardar para clientes
- * que ya existen en la lista.
+ * registrado. No lo crea: cuando el "Envía" del reparto no es un cliente
+ * cargado, el reparto se guarda igual con el nombre en texto libre, pero sin
+ * vincular (ni crear) ese cliente.
  *
  * Primero busca coincidencia exacta sin distinguir mayúsculas (rápida en la DB);
  * si no aparece, compara normalizado (ignorando mayúsculas, tildes y espacios)
@@ -310,7 +311,9 @@ export async function actualizarCliente(
   );
 }
 
-/** Elimina un cliente. Lanza si tiene remitos asociados (FK restrict). */
+/** Elimina un cliente. Los repartos quedan con cliente null (ON DELETE SET NULL)
+ *  y los remitos no se ven afectados: no tienen cliente propio, dependen del
+ *  reparto. Por eso la baja ya no puede quedar bloqueada por remitos. */
 export async function eliminarCliente(id: number): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM clientes WHERE id = ?", [id]);

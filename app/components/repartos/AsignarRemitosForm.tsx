@@ -50,7 +50,7 @@ export function AsignarRemitosForm({
               <span className="font-semibold text-zinc-900">
                 N° {String(remito.numero).padStart(4, "0")}
               </span>
-              <span className="text-zinc-500">· {remito.clienteNombre}</span>
+              <span className="text-zinc-500">· {remito.clienteNombre ?? "Sin reparto"}</span>
             </label>
           ))}
         </div>

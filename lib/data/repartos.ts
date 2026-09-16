@@ -193,8 +193,10 @@ export interface ItemMercaderiaNuevo {
 export interface DatosNuevoReparto {
   fecha: string; // YYYY-MM-DD
   estado?: EstadoReparto;
-  /** Cliente vinculado al reparto (campo "Envía"). */
-  clienteId?: number;
+  /** Cliente vinculado al reparto (campo "Envía"). Puede ser null si el
+   *  cliente todavía no está cargado: el reparto se guarda igual sin
+   *  vincularlo (el nombre queda en `enviadoPor`). */
+  clienteId?: number | null;
   enviadoPor?: string;
   recibidoPor?: string;
   observaciones?: string;
@@ -337,4 +339,42 @@ export async function asignarRemitosAReparto(
 export async function eliminarReparto(id: number): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM repartos WHERE id = ?", [id]);
+}
+
+// ----------------------------------------------------------------------------
+// Selección liviana de repartos (para emitir un remito)
+// ----------------------------------------------------------------------------
+
+/** Vista mínima para el `<select>` de repartos al dar de alta un remito. */
+export interface RepartoSeleccion {
+  id: number;
+  fecha: string;
+  /**
+   * Nombre visible del cliente del reparto: el del cliente vinculado, o el
+   * texto "Envía" si el reparto no tiene cliente registrado. Null solo si no
+   * hay nada que mostrar.
+   */
+  clienteNombre: string | null;
+}
+
+/** Lista los repartos activos (pendiente o en curso) para elegir a cuál emitir
+ *  un remito. El remito hereda el cliente del reparto elegido. */
+export async function listarRepartosParaSeleccion(): Promise<RepartoSeleccion[]> {
+  const db = await getDb();
+  const resultado = await db.execute(
+    `SELECT rp.id, rp.fecha,
+            COALESCE(c.nombre, rp.chofer) AS cliente_nombre
+     FROM repartos rp
+     LEFT JOIN clientes c ON c.id = rp.cliente_id
+     WHERE rp.estado IN ('pendiente', 'en_curso')
+     ORDER BY rp.fecha DESC, rp.id DESC`,
+  );
+  return resultado.rows.map((fila) => {
+    const f = fila as Fila;
+    return {
+      id: Number(f.id),
+      fecha: String(f.fecha),
+      clienteNombre: f.cliente_nombre ? String(f.cliente_nombre) : null,
+    };
+  });
 }

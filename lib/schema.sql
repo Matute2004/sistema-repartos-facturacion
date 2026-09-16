@@ -57,11 +57,15 @@ CREATE INDEX IF NOT EXISTS idx_reparto_items_reparto ON reparto_items(reparto_id
 
 -- ----------------------------------------------------------------------------
 -- Remitos
+-- El remito NO tiene cliente propio: se asocia a un reparto y el cliente sale
+-- del reparto (repartos.cliente_id -> clientes), con fallback al texto "Envía"
+-- (repartos.enviado_por). Así al borrar un cliente nunca hay remitos que lo
+-- bloqueen: los clientes solo se referencian desde repartos, con ON DELETE
+-- SET NULL.
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS remitos (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   numero         INTEGER NOT NULL, -- correlativo por comercio
-  cliente_id     INTEGER NOT NULL REFERENCES clientes(id) ON DELETE RESTRICT,
   reparto_id     INTEGER REFERENCES repartos(id) ON DELETE SET NULL,
   fecha          TEXT NOT NULL DEFAULT (date('now')),
   estado         TEXT NOT NULL DEFAULT 'pendiente'
@@ -99,7 +103,6 @@ CREATE TABLE IF NOT EXISTS gastos (
 -- ----------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_clientes_nombre     ON clientes(nombre);
 CREATE INDEX IF NOT EXISTS idx_repartos_fecha      ON repartos(fecha);
-CREATE INDEX IF NOT EXISTS idx_remitos_cliente     ON remitos(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_remitos_reparto     ON remitos(reparto_id);
 CREATE INDEX IF NOT EXISTS idx_remito_items_remito ON remito_items(remito_id);
 CREATE INDEX IF NOT EXISTS idx_gastos_fecha        ON gastos(fecha);

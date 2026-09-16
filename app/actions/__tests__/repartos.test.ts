@@ -155,7 +155,7 @@ describe("crearRepartoAction", () => {
     );
   });
 
-  it("emite un remito asociado al cliente y al reparto cuando lleva remito", async () => {
+  it("emite el remito asociado al reparto cuando lleva remito", async () => {
     const formData = new FormData();
     formData.set("fecha", "2026-09-13");
     formData.set("enviado_por", "Cliente Existe");
@@ -182,7 +182,6 @@ describe("crearRepartoAction", () => {
     );
     expect(crearRemito).toHaveBeenCalledWith({
       numero: 12,
-      clienteId: 42,
       fecha: "2026-09-13",
       repartoId: 9,
       observaciones: "Frágil",
@@ -197,21 +196,59 @@ describe("crearRepartoAction", () => {
     });
   });
 
-  it("rechaza y NO crea el reparto si el cliente no está en la lista de clientes", async () => {
+  it("guarda el reparto sin vincular ni crear cliente cuando el nombre no está en la lista", async () => {
     obtenerClientePorNombre.mockResolvedValue(null);
     const formData = new FormData();
     formData.set("fecha", "2026-09-13");
-    formData.set("enviado_por", "Cliente Inexistente");
+    formData.set("enviado_por", "Cliente No Cargado");
     formData.append("reparto_item_descripcion", "Caja surtida");
     formData.append("reparto_item_cantidad", "1");
     formData.append("reparto_item_precio", "500");
 
-    const resultado = await crearRepartoAction(estadoInicial, formData);
+    await expect(crearRepartoAction(estadoInicial, formData)).rejects.toThrow(
+      SENAL_REDIRECT,
+    );
 
-    expect(resultado.error).toContain("no está registrado");
-    expect(crearReparto).not.toHaveBeenCalled();
+    expect(crearReparto).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clienteId: null,
+        enviadoPor: "Cliente No Cargado",
+        llevaRemito: false,
+      }),
+    );
     expect(crearRemito).not.toHaveBeenCalled();
-    expect(redirect).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith("/repartos");
+  });
+
+  it("emite el remito asociado al reparto aunque el cliente (Envía) no esté en la lista", async () => {
+    obtenerClientePorNombre.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("fecha", "2026-09-13");
+    formData.set("enviado_por", "Cliente No Cargado");
+    formData.set("lleva_remito", "on");
+    formData.append("item_descripcion", "Caja de vino");
+    formData.append("item_cantidad", "1");
+    formData.append("item_precio", "100");
+
+    await expect(crearRepartoAction(estadoInicial, formData)).rejects.toThrow(
+      SENAL_REDIRECT,
+    );
+
+    // El remito queda asociado al reparto y el cliente se resuelve por el
+    // reparto: ya no se exige que el cliente esté en la lista.
+    expect(crearReparto).toHaveBeenCalledWith(
+      expect.objectContaining({ clienteId: null, llevaRemito: true }),
+    );
+    expect(crearRemito).toHaveBeenCalledWith({
+      numero: 12,
+      fecha: "2026-09-13",
+      repartoId: 9,
+      observaciones: undefined,
+      items: [
+        { descripcion: "Caja de vino", cantidad: 1, precioUnitarioCentavos: 10000 },
+      ],
+    });
+    expect(redirect).toHaveBeenCalledWith("/repartos");
   });
 
   it("pide el cliente (Envía) antes de crear el reparto", async () => {

@@ -54,9 +54,9 @@ export function RepartoForm({
     { key: 0, descripcion: "", cantidad: "1", precio: "" },
   ]);
 
-  // Buscador de cliente (campo "Envía"): la lupa filtra los clientes existentes.
-  // La server action exige un cliente registrado: si no aparece en la lista,
-  // no se puede guardar el reparto (no se crea el cliente al vuelo).
+  // Buscador de cliente (campo "Envía"): la lupa filtra los clientes ya
+  // cargados para poder vincular el reparto a uno existente. Si el cliente no
+  // está en la lista, el reparto se guarda igual, sin crear ni vincular cliente.
   const [busqueda, setBusqueda] = useState("");
   const [clienteElegidoId, setClienteElegidoId] = useState<number | null>(null);
   const [listaAbierta, setListaAbierta] = useState(false);
@@ -146,7 +146,7 @@ export function RepartoForm({
           label="Cliente (Envía)"
           htmlFor="cliente_buscar"
           required
-          hint="Buscá un cliente existente con la lupa. Si no aparece en la lista, creálo antes desde la sección Clientes."
+          hint="Buscá un cliente ya cargado con la lupa para vincularlo al reparto. Si no está en la lista, el reparto se guarda igual: queda con el nombre escrito, sin crear ni vincular un cliente."
         >
           <div className="relative">
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-zinc-400">
@@ -220,8 +220,8 @@ export function RepartoForm({
                 ))}
                 {clientesFiltrados.length === 0 && (
                   <li className="flex w-full items-center gap-2 border-t border-zinc-100 px-3 py-2 text-left text-sm text-zinc-500">
-                    No hay clientes «{busqueda.trim()}» en la lista. Creálo antes
-                    desde la sección Clientes.
+                    «{busqueda.trim()}» no está en la lista de clientes. El
+                    reparto se guardará igual, sin crear este cliente.
                   </li>
                 )}
               </ul>
@@ -529,7 +529,7 @@ export function RepartoForm({
                 <span className="font-semibold text-zinc-900">
                   N° {String(remito.numero).padStart(4, "0")}
                 </span>
-                <span className="text-zinc-500">· {remito.clienteNombre}</span>
+                <span className="text-zinc-500">· {remito.clienteNombre ?? "Sin reparto"}</span>
               </label>
             ))}
           </div>

@@ -23,7 +23,7 @@ export default async function DetalleRemitoPage({
   const completo = await obtenerRemitoCompleto(Number(id));
   if (!completo) notFound();
 
-  const { remito, cliente, items } = completo;
+  const { remito, reparto, cliente, clienteNombre, items } = completo;
   const totalCentavos = items.reduce(
     (total, item) => total + item.cantidad * item.precioUnitarioCentavos,
     0,
@@ -53,6 +53,19 @@ export default async function DetalleRemitoPage({
               Emitido el {formatFecha(remito.fecha)}
             </span>
           </div>
+          {reparto && (
+            <div className="text-sm">
+              <span className="text-zinc-500">
+                Reparto del {formatFecha(reparto.fecha)}
+              </span>{" "}
+              <Link
+                href={`/repartos/${reparto.id}`}
+                className="font-medium text-emerald-700 underline-offset-2 hover:underline"
+              >
+                Abrir reparto
+              </Link>
+            </div>
+          )}
           <ImprimirButton />
         </div>
 
@@ -81,22 +94,28 @@ export default async function DetalleRemitoPage({
           </div>
         </div>
 
-        {/* Datos del cliente */}
+        {/* Datos del cliente (se resuelven a través del reparto del remito) */}
         <div className="grid gap-6 border-b border-zinc-200 py-4 sm:grid-cols-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
               Cliente
             </p>
-            <p className="mt-1 font-semibold text-zinc-900">{cliente.nombre}</p>
-            {cliente.direccion && (
+            <p className="mt-1 font-semibold text-zinc-900">
+              {clienteNombre ?? (
+                <span className="font-normal text-zinc-400">
+                  Sin reparto asignado
+                </span>
+              )}
+            </p>
+            {cliente?.direccion && (
               <p className="text-sm text-zinc-600">{cliente.direccion}</p>
             )}
-            {cliente.localidad && (
+            {cliente?.localidad && (
               <p className="text-sm text-zinc-600">{cliente.localidad}</p>
             )}
           </div>
           <div>
-            {cliente.cuit && (
+            {cliente?.cuit && (
               <>
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                   CUIT / CUIL
@@ -104,7 +123,7 @@ export default async function DetalleRemitoPage({
                 <p className="mt-1 text-sm text-zinc-900">{cliente.cuit}</p>
               </>
             )}
-            {cliente.telefono && (
+            {cliente?.telefono && (
               <p className="mt-2 text-sm text-zinc-600">
                 Tel: {cliente.telefono}
               </p>

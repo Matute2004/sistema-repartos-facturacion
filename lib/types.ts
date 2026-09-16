@@ -131,7 +131,11 @@ export type EstadoRemito = "pendiente" | "entregado" | "cancelado";
 export interface Remito {
   id: number;
   numero: number;
-  clienteId: number;
+  /**
+   * Reparto al que pertenece el remito. El cliente del remito es el del
+   * reparto (repartos.cliente_id -> clientes): el remito no tiene cliente
+   * propio, para que borrar un cliente nunca quede bloqueado por remitos.
+   */
   repartoId: number | null;
   fecha: string;
   estado: EstadoRemito;

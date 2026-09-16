@@ -108,7 +108,11 @@ async function TablaRemitos() {
                 {String(remito.numero).padStart(4, "0")}
               </Link>
             </Td>
-            <Td>{remito.clienteNombre}</Td>
+            <Td>
+              {remito.clienteNombre ?? (
+                <span className="text-zinc-400">Sin reparto</span>
+              )}
+            </Td>
             <Td className="whitespace-nowrap">{formatFecha(remito.fecha)}</Td>
             <Td>
               <Badge tone={TONE_ESTADO_REMITO[remito.estado]}>

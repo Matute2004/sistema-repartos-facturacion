@@ -3,8 +3,13 @@
 import { useActionState, useMemo, useState } from "react";
 import { crearRemitoAction } from "@/app/actions/remitos";
 import { estadoInicial } from "@/app/actions/estado";
-import { fechaHoyLocal, formatPesos, pesosACentavos } from "@/lib/types";
-import type { ClienteSeleccion } from "@/lib/data/clientes";
+import {
+  fechaHoyLocal,
+  formatFecha,
+  formatPesos,
+  pesosACentavos,
+} from "@/lib/types";
+import type { RepartoSeleccion } from "@/lib/data/repartos";
 import {
   Button,
   ButtonLink,
@@ -25,10 +30,10 @@ interface FilaItem {
 let siguienteKey = 1;
 
 export function RemitoForm({
-  clientes,
+  repartos,
   numeroProximo,
 }: {
-  clientes: ClienteSeleccion[];
+  repartos: RepartoSeleccion[];
   numeroProximo: number;
 }) {
   const [estado, formAction, pending] = useActionState(
@@ -71,20 +76,26 @@ export function RemitoForm({
       <FormError message={estado.error} />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Cliente" htmlFor="cliente_id" required>
+        <Field
+          label="Reparto"
+          htmlFor="reparto_id"
+          required
+          hint="El cliente del remito es el del reparto elegido."
+        >
           <Select
-            id="cliente_id"
-            name="cliente_id"
+            id="reparto_id"
+            name="reparto_id"
             required
             disabled={pending}
             defaultValue=""
           >
             <option value="" disabled>
-              Seleccioná un cliente…
+              Seleccioná un reparto…
             </option>
-            {clientes.map((cliente) => (
-              <option key={cliente.id} value={cliente.id}>
-                {cliente.nombre}
+            {repartos.map((reparto) => (
+              <option key={reparto.id} value={reparto.id}>
+                Reparto del {formatFecha(reparto.fecha)} ·{" "}
+                {reparto.clienteNombre ?? "Cliente no cargado"}
               </option>
             ))}
           </Select>

@@ -83,15 +83,29 @@ describe("flujo clientes", () => {
     expect(await obtenerCliente(id)).toBeNull();
   });
 
-  it("no permite eliminar un cliente que tiene remitos (FK RESTRICT)", async () => {
+  it("elimina un cliente aunque tenga remitos (el remito depende del reparto)", async () => {
     const clienteId = await crearClienteBasico(2);
+    const repartoId = await crearReparto({
+      fecha: "2026-09-13",
+      clienteId,
+      enviadoPor: "Cliente 2",
+    });
     await crearRemito({
       numero: await proximoNumeroRemito(),
-      clienteId,
+      repartoId,
       fecha: "2026-09-13",
       items: [{ descripcion: "a", cantidad: 1, precioUnitarioCentavos: 100 }],
     });
-    await expect(eliminarCliente(clienteId)).rejects.toThrow();
+
+    // El remito no referencia al cliente (solo al reparto): la baja no se
+    // bloquea. El reparto queda con cliente null (ON DELETE SET NULL) pero
+    // conserva su remito.
+    await eliminarCliente(clienteId);
+
+    const reparto = await obtenerReparto(repartoId);
+    expect(reparto?.clienteId).toBeNull();
+    expect(reparto?.enviadoPor).toBe("Cliente 2");
+    expect(await listarRemitosDelReparto(repartoId)).toHaveLength(1);
   });
 
   it("inserta clientes en lote y las vistas livianas no exponen notas", async () => {
@@ -147,13 +161,14 @@ describe("flujo clientes", () => {
 });
 
 describe("flujo remitos", () => {
-  it("crea un remito con items y calcula su valor total", async () => {
+  it("crea un remito con items dentro de un reparto y calcula su valor total", async () => {
     const clienteId = await crearClienteBasico(3);
+    const repartoId = await crearReparto({ fecha: "2026-09-13", clienteId });
     const numero = await proximoNumeroRemito();
 
     const remitoId = await crearRemito({
       numero,
-      clienteId,
+      repartoId,
       fecha: "2026-09-13",
       observaciones: "Entregar antes de las 12",
       items: [
@@ -165,7 +180,10 @@ describe("flujo remitos", () => {
     const completo = await obtenerRemitoCompleto(remitoId);
     expect(completo).not.toBeNull();
     expect(completo!.items).toHaveLength(2);
-    expect(completo!.cliente.nombre).toBe("Cliente 3");
+    // El cliente sale del reparto, no del remito.
+    expect(completo!.cliente?.nombre).toBe("Cliente 3");
+    expect(completo!.reparto?.id).toBe(repartoId);
+    expect(completo!.clienteNombre).toBe("Cliente 3");
     // 2 * 12000 + 1 * 2500 = 26500 (antes el detalle daba $0)
     expect(completo!.remito.valorCentavos).toBe(26500);
     await expect(obtenerRemito(remitoId)).resolves.toMatchObject({
@@ -175,16 +193,17 @@ describe("flujo remitos", () => {
 
   it("autoasigna números correlativos", async () => {
     const clienteId = await crearClienteBasico(4);
+    const repartoId = await crearReparto({ fecha: "2026-09-13", clienteId });
     const primero = await proximoNumeroRemito();
     const id1 = await crearRemito({
       numero: primero,
-      clienteId,
+      repartoId,
       fecha: "2026-09-13",
       items: [{ descripcion: "x", cantidad: 1, precioUnitarioCentavos: 10 }],
     });
     const id2 = await crearRemito({
       numero: await proximoNumeroRemito(),
-      clienteId,
+      repartoId,
       fecha: "2026-09-13",
       items: [{ descripcion: "y", cantidad: 1, precioUnitarioCentavos: 20 }],
     });
@@ -198,26 +217,25 @@ describe("flujo remitos", () => {
 describe("flujo repartos y asignación de remitos", () => {
   it("calcula el valor total del reparto sumando los items (regresión $0)", async () => {
     const clienteId = await crearClienteBasico(5);
-
-    const r1 = await crearRemito({
-      numero: await proximoNumeroRemito(),
-      clienteId,
-      fecha: "2026-09-13",
-      items: [{ descripcion: "a", cantidad: 3, precioUnitarioCentavos: 1000 }],
-    });
-    const r2 = await crearRemito({
-      numero: await proximoNumeroRemito(),
-      clienteId,
-      fecha: "2026-09-13",
-      items: [{ descripcion: "b", cantidad: 1, precioUnitarioCentavos: 5000 }],
-    });
-
     const repartoId = await crearReparto({
       fecha: "2026-09-13",
+      clienteId,
       enviadoPor: "Jorge",
       recibidoPor: "F-100",
     });
-    await asignarRemitosAReparto(repartoId, [r1, r2]);
+
+    await crearRemito({
+      numero: await proximoNumeroRemito(),
+      repartoId,
+      fecha: "2026-09-13",
+      items: [{ descripcion: "a", cantidad: 3, precioUnitarioCentavos: 1000 }],
+    });
+    await crearRemito({
+      numero: await proximoNumeroRemito(),
+      repartoId,
+      fecha: "2026-09-13",
+      items: [{ descripcion: "b", cantidad: 1, precioUnitarioCentavos: 5000 }],
+    });
 
     const reparto = await obtenerReparto(repartoId);
     // 3 * 1000 + 1 * 5000 = 8000. Antes este campo daba 0 siempre.
@@ -237,15 +255,13 @@ describe("flujo repartos y asignación de remitos", () => {
 
   it("no reasigna un remito que ya tiene reparto", async () => {
     const clienteId = await crearClienteBasico(6);
+    const reparto1 = await crearReparto({ fecha: "2026-09-13", clienteId });
     const remitoId = await crearRemito({
       numero: await proximoNumeroRemito(),
-      clienteId,
+      repartoId: reparto1,
       fecha: "2026-09-13",
       items: [{ descripcion: "a", cantidad: 1, precioUnitarioCentavos: 10 }],
     });
-
-    const reparto1 = await crearReparto({ fecha: "2026-09-13" });
-    await asignarRemitosAReparto(reparto1, [remitoId]);
 
     const reparto2 = await crearReparto({ fecha: "2026-09-13" });
     await asignarRemitosAReparto(reparto2, [remitoId]);
@@ -369,9 +385,8 @@ describe("flujo repartos y asignación de remitos", () => {
     const repartoId = await crearReparto({ fecha: "2026-09-14", clienteId });
     const remitoId = await crearRemito({
       numero: await proximoNumeroRemito(),
-      clienteId,
-      fecha: "2026-09-14",
       repartoId,
+      fecha: "2026-09-14",
       items: [{ descripcion: "a", cantidad: 1, precioUnitarioCentavos: 100 }],
     });
 
@@ -549,5 +564,86 @@ describe("métricas del dashboard", () => {
     expect(metricas.repartosHoyPendientes).toBe(2);
     // en_curso + pendiente de hoy + pendiente del 02/09 = 3
     expect(metricas.repartosPendientesTotal).toBe(3);
+  });
+});
+
+describe("migración de remitos a reparto", () => {
+  it("reconstruye remitos sin cliente_id conservando los datos", async () => {
+    const db = await getDb();
+
+    // Simula una base en el formato viejo: remitos con cliente_id NOT NULL.
+    await db.execute("DROP TABLE remito_items");
+    await db.execute("DROP TABLE remitos");
+    await db.execute(`CREATE TABLE remitos (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      numero         INTEGER NOT NULL,
+      cliente_id     INTEGER NOT NULL REFERENCES clientes(id) ON DELETE RESTRICT,
+      reparto_id     INTEGER REFERENCES repartos(id) ON DELETE SET NULL,
+      fecha          TEXT NOT NULL DEFAULT (date('now')),
+      estado         TEXT NOT NULL DEFAULT 'pendiente'
+                     CHECK (estado IN ('pendiente', 'entregado', 'cancelado')),
+      observaciones  TEXT,
+      creado_en      TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (numero)
+    )`);
+    await db.execute(`CREATE TABLE remito_items (
+      id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+      remito_id                INTEGER NOT NULL REFERENCES remitos(id) ON DELETE CASCADE,
+      descripcion              TEXT NOT NULL,
+      cantidad                 REAL NOT NULL DEFAULT 1 CHECK (cantidad > 0),
+      precio_unitario_centavos INTEGER NOT NULL DEFAULT 0 CHECK (precio_unitario_centavos >= 0)
+    )`);
+    await db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_remito_items_remito ON remito_items(remito_id)",
+    );
+    await db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_remitos_cliente ON remitos(cliente_id)",
+    );
+    await db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_remitos_reparto ON remitos(reparto_id)",
+    );
+
+    const clienteId = await crearClienteBasico(40);
+    const reparto = await crearReparto({
+      fecha: "2026-09-13",
+      clienteId,
+      enviadoPor: "Cliente 40",
+    });
+    const remito = Number(
+      (
+        await db.execute(
+          `INSERT INTO remitos (numero, cliente_id, reparto_id, fecha, estado)
+           VALUES (?, ?, ?, ?, 'pendiente')`,
+          [1, clienteId, reparto, "2026-09-13"],
+        )
+      ).lastInsertRowid,
+    );
+    await db.execute(
+      `INSERT INTO remito_items (remito_id, descripcion, cantidad, precio_unitario_centavos)
+       VALUES (?, ?, ?, ?)`,
+      [remito, "Caja de agua", 1, 12000],
+    );
+
+    // La migración reconstruye la tabla sin cliente_id y conserva los datos.
+    await migrate();
+
+    const columnas = await db.execute(
+      "SELECT name FROM pragma_table_info('remitos') WHERE name = 'cliente_id'",
+    );
+    expect(columnas.rows).toHaveLength(0);
+
+    const completo = await obtenerRemitoCompleto(remito);
+    expect(completo?.remito.repartoId).toBe(reparto);
+    expect(completo?.clienteNombre).toBe("Cliente 40");
+    expect(completo?.items).toHaveLength(1);
+
+    // Idempotente: correrla de nuevo no rompe nada.
+    await expect(migrate()).resolves.toBeUndefined();
+
+    // Y ahora sí se puede borrar el cliente: los remitos ya no lo referencian,
+    // solo los repartos (que quedan con cliente null).
+    await eliminarCliente(clienteId);
+    expect(await obtenerCliente(clienteId)).toBeNull();
+    expect((await obtenerReparto(reparto))?.clienteId).toBeNull();
   });
 });

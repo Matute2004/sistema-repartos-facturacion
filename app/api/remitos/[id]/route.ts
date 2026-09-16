@@ -26,7 +26,9 @@ export async function GET(
 
   return Response.json({
     remito: completo.remito,
+    reparto: completo.reparto,
     cliente: completo.cliente,
+    clienteNombre: completo.clienteNombre,
     items: completo.items,
   });
 }

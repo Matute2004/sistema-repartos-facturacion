@@ -71,11 +71,12 @@ export async function crearRemitoAction(
   formData: FormData,
 ): Promise<EstadoAction> {
   await exigirAdmin();
-  const clienteId = Number(formData.get("cliente_id"));
+  const repartoId = Number(formData.get("reparto_id"));
   const fecha = texto(formData, "fecha");
 
-  if (!Number.isInteger(clienteId) || clienteId <= 0) {
-    return { error: "Seleccioná un cliente." };
+  // El remito pertenece a un reparto: el cliente sale del reparto elegido.
+  if (!Number.isInteger(repartoId) || repartoId <= 0) {
+    return { error: "Seleccioná el reparto del remito." };
   }
   if (!fecha) {
     return { error: "La fecha del remito es obligatoria." };
@@ -93,7 +94,7 @@ export async function crearRemitoAction(
     const numero = await proximoNumeroRemito();
     remitoId = await crearRemito({
       numero,
-      clienteId,
+      repartoId,
       fecha,
       observaciones: textoOpcional(formData, "observaciones"),
       items,
