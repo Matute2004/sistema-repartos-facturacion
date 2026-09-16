@@ -16,8 +16,8 @@ import { RemitoModal } from "@/app/components/repartos/RemitoModal";
  * Los repartos llegan ya filtrados por día y ordenados desde la capa de datos.
  * Ya no hay estado ni casilla de completado: cada fila apenas muestra los
  * datos del reparto y la forma de pago (cobrado / por cobrar) se elige inline.
- * El monto se pinta en rojo si falta cobrar y en verde cuando ya se cobró
- * (con la forma de pago que sea).
+ * El monto se pinta en rojo si la forma es "Por cobrar" y en verde cuando ya
+ * tiene forma de pago cargada (contado, cuenta corriente, débito o cheque).
  */
 export function RepartosTablaBusqueda({ repartos }: { repartos: Reparto[] }) {
   const [consulto, setConsulto] = useState("");
@@ -124,7 +124,7 @@ export function RepartosTablaBusqueda({ repartos }: { repartos: Reparto[] }) {
                 </Td>
                 <Td
                   className={`whitespace-nowrap text-right font-semibold ${
-                    reparto.cobrado ? "text-emerald-700" : "text-red-600"
+                    reparto.formaPago != null ? "text-emerald-700" : "text-red-600"
                   }`}
                 >
                   {formatPesos(reparto.valorCentavos)}

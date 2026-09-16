@@ -116,7 +116,7 @@ export default async function DetalleRepartoPage({
               </p>
               <p
                 className={`mt-1 text-sm font-bold ${
-                  reparto.cobrado ? "text-emerald-700" : "text-red-600"
+                  reparto.formaPago != null ? "text-emerald-700" : "text-red-600"
                 }`}
               >
                 {formatPesos(reparto.valorCentavos)}
