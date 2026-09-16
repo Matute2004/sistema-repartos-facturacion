@@ -646,4 +646,73 @@ describe("migración de remitos a reparto", () => {
     expect(await obtenerCliente(clienteId)).toBeNull();
     expect((await obtenerReparto(reparto))?.clienteId).toBeNull();
   });
+
+  it("elimina siempre al cliente aunque la base siga en el esquema viejo (remitos.cliente_id bloqueante)", async () => {
+    const db = await getDb();
+
+    // Simula la base real sin migrar: remitos con cliente_id NOT NULL y FK
+    // ON DELETE RESTRICT (el motivo original por el que no se podía borrar).
+    await db.execute("DROP TABLE remito_items");
+    await db.execute("DROP TABLE remitos");
+    await db.execute(`CREATE TABLE remitos (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      numero         INTEGER NOT NULL,
+      cliente_id     INTEGER NOT NULL REFERENCES clientes(id) ON DELETE RESTRICT,
+      reparto_id     INTEGER REFERENCES repartos(id) ON DELETE SET NULL,
+      fecha          TEXT NOT NULL DEFAULT (date('now')),
+      estado         TEXT NOT NULL DEFAULT 'pendiente'
+                     CHECK (estado IN ('pendiente', 'entregado', 'cancelado')),
+      observaciones  TEXT,
+      creado_en      TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (numero)
+    )`);
+    await db.execute(`CREATE TABLE remito_items (
+      id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+      remito_id                INTEGER NOT NULL REFERENCES remitos(id) ON DELETE CASCADE,
+      descripcion              TEXT NOT NULL,
+      cantidad                 REAL NOT NULL DEFAULT 1 CHECK (cantidad > 0),
+      precio_unitario_centavos INTEGER NOT NULL DEFAULT 0 CHECK (precio_unitario_centavos >= 0)
+    )`);
+    await db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_remitos_cliente ON remitos(cliente_id)",
+    );
+
+    const clienteId = await crearClienteBasico(41);
+    const repartoId = await crearReparto({
+      fecha: "2026-09-13",
+      clienteId,
+      enviadoPor: "Cliente 41",
+    });
+    const remito = Number(
+      (
+        await db.execute(
+          `INSERT INTO remitos (numero, cliente_id, reparto_id, fecha, estado)
+           VALUES (?, ?, ?, ?, 'pendiente')`,
+          [1, clienteId, repartoId, "2026-09-13"],
+        )
+      ).lastInsertRowid,
+    );
+
+    // Acá el DELETE directo de clientes FALLARÍA por la FK RESTRICT. Pero
+    // eliminarCliente primero deja el esquema al día (conserva el remito con
+    // su reparto) y recién entonces borra al cliente.
+    await expect(eliminarCliente(clienteId)).resolves.toBeUndefined();
+
+    expect(await obtenerCliente(clienteId)).toBeNull();
+
+    // El esquema quedó migrado y el remito no perdió su reparto.
+    const columnas = await db.execute(
+      "SELECT name FROM pragma_table_info('remitos') WHERE name = 'cliente_id'",
+    );
+    expect(columnas.rows).toHaveLength(0);
+
+    const reparto = await obtenerReparto(repartoId);
+    expect(reparto?.clienteId).toBeNull();
+    expect(await listarRemitosDelReparto(repartoId)).toHaveLength(1);
+
+    // El cliente sigue visible en el remito a través del "Envía" del reparto.
+    const completo = await obtenerRemitoCompleto(remito);
+    expect(completo?.remito.repartoId).toBe(repartoId);
+    expect(completo?.clienteNombre).toBe("Cliente 41");
+  });
 });

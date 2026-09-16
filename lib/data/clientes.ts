@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db";
+import { migrate } from "@/lib/migrate";
 import type { InArgs, InStatement } from "@libsql/core/api";
 import type { Cliente } from "@/lib/types";
 
@@ -311,10 +312,32 @@ export async function actualizarCliente(
   );
 }
 
-/** Elimina un cliente. Los repartos quedan con cliente null (ON DELETE SET NULL)
- *  y los remitos no se ven afectados: no tienen cliente propio, dependen del
- *  reparto. Por eso la baja ya no puede quedar bloqueada por remitos. */
+/**
+ * Elimina un cliente SIEMPRE, sin que lo bloqueen repartos ni remitos.
+ *
+ * El remito no tiene cliente propio (depende del reparto), así que el único
+ * vínculo con clientes son los repartos (`repartos.cliente_id`). Para que la
+ * baja nunca falle:
+ *
+ *  1. Nos aseguramos de que el esquema sea el actual. Si la base todavía está
+ *     en el formato viejo (remitos con `cliente_id` NOT NULL y FK bloqueante),
+ *     `migrate()` la reconstruye conservando los datos. Si ya está migrada no
+ *     hace nada (idempotente).
+ *  2. Desvinculamos al cliente de los repartos (SET NULL) y lo borramos en un
+ *     mismo batch atómico.
+ */
 export async function eliminarCliente(id: number): Promise<void> {
+  await migrate();
+
   const db = await getDb();
-  await db.execute("DELETE FROM clientes WHERE id = ?", [id]);
+  await db.batch([
+    {
+      sql: "UPDATE repartos SET cliente_id = NULL WHERE cliente_id = ?",
+      args: [id] as InArgs,
+    },
+    {
+      sql: "DELETE FROM clientes WHERE id = ?",
+      args: [id] as InArgs,
+    },
+  ]);
 }
