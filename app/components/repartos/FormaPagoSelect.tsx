@@ -17,6 +17,11 @@ import { Select } from "@/app/components/ui/form";
  * Con «Cuenta corriente» y un reparto que todavía no tiene cliente vinculado,
  * si hay Flete Origen Y Flete Destino se pregunta cuál de las dos puntas es el
  * cliente que se registra (se crea con ese nombre si todavía no está cargado).
+ *
+ * Para elegir el lado NO se usan botones `type="submit"` que se desmontan en
+ * el clic (podía abortar el envío y el `cliente_cc_lado` nunca llegaba a la
+ * acción): se setea un input oculto y se dispara `requestSubmit()`, el mismo
+ * camino que ya usa la selección directa en la tabla.
  */
 export function FormaPagoSelect({
   repartoId,
@@ -46,6 +51,7 @@ export function FormaPagoSelect({
   const [valor, setValor] = useState(valorActual ?? "");
   const [preguntarCc, setPreguntarCc] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const ladoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!pending && !estado.error) {
@@ -82,9 +88,27 @@ export function FormaPagoSelect({
     setValor(valorActual ?? "");
   }
 
+  /** Elige el lado del cliente en cuenta corriente y guarda al instante. */
+  function elegirLado(lado: "origen" | "destino") {
+    if (ladoRef.current) {
+      ladoRef.current.value = lado;
+    }
+    setPreguntarCc(false);
+    // Mismo mecanismo que la selección directa: `requestSubmit()` levanta el
+    // evento `submit` y React dispara la server action con `cliente_cc_lado`.
+    formRef.current?.requestSubmit();
+  }
+
   return (
     <form ref={formRef} action={formAction} className="inline-block align-top">
       <input type="hidden" name="id" value={repartoId} />
+      <input
+        ref={ladoRef}
+        type="hidden"
+        name="cliente_cc_lado"
+        value=""
+        aria-hidden="true"
+      />
       <Select
         name="forma_pago"
         value={valor}
@@ -121,10 +145,8 @@ export function FormaPagoSelect({
           </p>
           <div className="mt-2 space-y-1.5">
             <button
-              type="submit"
-              name="cliente_cc_lado"
-              value="origen"
-              onClick={() => setPreguntarCc(false)}
+              type="button"
+              onClick={() => elegirLado("origen")}
               disabled={pending}
               className="flex w-full items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left text-sm hover:border-emerald-500 hover:bg-emerald-50"
             >
@@ -134,10 +156,8 @@ export function FormaPagoSelect({
               </span>
             </button>
             <button
-              type="submit"
-              name="cliente_cc_lado"
-              value="destino"
-              onClick={() => setPreguntarCc(false)}
+              type="button"
+              onClick={() => elegirLado("destino")}
               disabled={pending}
               className="flex w-full items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left text-sm hover:border-emerald-500 hover:bg-emerald-50"
             >
@@ -157,9 +177,13 @@ export function FormaPagoSelect({
         </div>
       )}
       {estado.error && (
-        <span className="sr-only" role="alert">
+        <p
+          role="alert"
+          aria-live="polite"
+          className="inline-block max-w-64 align-middle text-xs font-medium text-red-700"
+        >
           {estado.error}
-        </span>
+        </p>
       )}
     </form>
   );
