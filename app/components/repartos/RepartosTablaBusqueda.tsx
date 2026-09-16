@@ -133,6 +133,10 @@ export function RepartosTablaBusqueda({ repartos }: { repartos: Reparto[] }) {
                   <FormaPagoSelect
                     repartoId={reparto.id}
                     valorActual={reparto.formaPago}
+                    enviadoPor={reparto.enviadoPor}
+                    recibidoPor={reparto.recibidoPor}
+                    clienteNombre={reparto.clienteNombre}
+                    key={reparto.formaPago ?? "por-cobrar"}
                   />
                 </Td>
               </tr>

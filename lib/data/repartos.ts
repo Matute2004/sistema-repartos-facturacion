@@ -314,8 +314,8 @@ export async function crearReparto(datos: DatosNuevoReparto): Promise<number> {
  * null, el reparto vuelve a "Por cobrar" y la forma queda sin usar.
  *
  * Con "Cuenta corriente" la acción pasa `clienteId`: el cliente del reparto
- * (campo "Envía") se registra/vincula en ese momento. Para el resto de las
- * formas el cliente no se toca.
+ * (el Flete Origen o el Flete Destino elegido) se registra/vincula en ese
+ * momento. Para el resto de las formas el cliente no se toca.
  */
 export async function actualizarFormaPagoReparto(
   id: number,

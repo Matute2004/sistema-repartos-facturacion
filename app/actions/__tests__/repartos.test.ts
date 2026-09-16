@@ -434,6 +434,108 @@ describe("actualizarFormaPagoRepartoAction", () => {
     );
   });
 
+  it("«cuenta corriente» con cliente_cc_lado=destino registra el cliente del Flete Destino aunque el Flete Origen tenga nombre", async () => {
+    obtenerPartesReparto.mockResolvedValue({
+      clienteId: null,
+      enviadoPor: "Almacén Don José",
+      recibidoPor: "Distribuidora Sur",
+    });
+
+    const formData = new FormData();
+    formData.set("id", "3");
+    formData.set("forma_pago", "cuenta_corriente");
+    formData.set("cliente_cc_lado", "destino");
+
+    const resultado = await actualizarFormaPagoRepartoAction(
+      estadoInicial,
+      formData,
+    );
+    expect(resultado.error).toBeNull();
+    expect(obtenerOCrearClientePorNombre).toHaveBeenCalledWith(
+      "Distribuidora Sur",
+    );
+    expect(actualizarFormaPagoReparto).toHaveBeenCalledWith(
+      3,
+      "cuenta_corriente",
+      43,
+    );
+  });
+
+  it("«cuenta corriente» con cliente_cc_lado=origen registra el cliente del Flete Origen", async () => {
+    obtenerPartesReparto.mockResolvedValue({
+      clienteId: null,
+      enviadoPor: "Almacén Don José",
+      recibidoPor: "Distribuidora Sur",
+    });
+
+    const formData = new FormData();
+    formData.set("id", "3");
+    formData.set("forma_pago", "cuenta_corriente");
+    formData.set("cliente_cc_lado", "origen");
+
+    const resultado = await actualizarFormaPagoRepartoAction(
+      estadoInicial,
+      formData,
+    );
+    expect(resultado.error).toBeNull();
+    expect(obtenerOCrearClientePorNombre).toHaveBeenCalledWith(
+      "Almacén Don José",
+    );
+    expect(actualizarFormaPagoReparto).toHaveBeenCalledWith(
+      3,
+      "cuenta_corriente",
+      43,
+    );
+  });
+
+  it("«cuenta corriente» con lado explícito reemplaza el cliente ya vinculado al reparto", async () => {
+    obtenerPartesReparto.mockResolvedValue({
+      clienteId: 88,
+      enviadoPor: "Almacén Don José",
+      recibidoPor: "Distribuidora Sur",
+    });
+
+    const formData = new FormData();
+    formData.set("id", "3");
+    formData.set("forma_pago", "cuenta_corriente");
+    formData.set("cliente_cc_lado", "destino");
+
+    const resultado = await actualizarFormaPagoRepartoAction(
+      estadoInicial,
+      formData,
+    );
+    expect(resultado.error).toBeNull();
+    expect(obtenerOCrearClientePorNombre).toHaveBeenCalledWith(
+      "Distribuidora Sur",
+    );
+    expect(actualizarFormaPagoReparto).toHaveBeenCalledWith(
+      3,
+      "cuenta_corriente",
+      43,
+    );
+  });
+
+  it("«cuenta corriente» rechaza si el lado elegido no tiene nombre en el reparto", async () => {
+    obtenerPartesReparto.mockResolvedValue({
+      clienteId: null,
+      enviadoPor: "Almacén Don José",
+      recibidoPor: null,
+    });
+
+    const formData = new FormData();
+    formData.set("id", "3");
+    formData.set("forma_pago", "cuenta_corriente");
+    formData.set("cliente_cc_lado", "destino");
+
+    const resultado = await actualizarFormaPagoRepartoAction(
+      estadoInicial,
+      formData,
+    );
+    expect(resultado.error).toContain("Flete Destino");
+    expect(obtenerOCrearClientePorNombre).not.toHaveBeenCalled();
+    expect(actualizarFormaPagoReparto).not.toHaveBeenCalled();
+  });
+
   it("«cuenta corriente» conserva el cliente ya vinculado al reparto", async () => {
     obtenerPartesReparto.mockResolvedValue({
       clienteId: 88,

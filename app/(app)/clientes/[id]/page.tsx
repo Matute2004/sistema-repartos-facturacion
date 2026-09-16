@@ -180,6 +180,10 @@ export default async function DetalleClientePage({
                     <FormaPagoSelect
                       repartoId={reparto.id}
                       valorActual={reparto.formaPago}
+                      enviadoPor={reparto.enviadoPor}
+                      recibidoPor={reparto.recibidoPor}
+                      clienteNombre={reparto.clienteNombre}
+                      key={reparto.formaPago ?? "por-cobrar"}
                     />
                   </Td>
                 </tr>

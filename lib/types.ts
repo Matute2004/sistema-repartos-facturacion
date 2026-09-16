@@ -93,7 +93,7 @@ export interface RepartoRemitoLigero {
 export interface Reparto {
   id: number;
   fecha: string;
-  /** Cliente vinculado al reparto (el "Envía"), o null si es un reparto viejo. */
+  /** Cliente vinculado al reparto (Flete Origen o Flete Destino), o null si es un reparto viejo. */
   clienteId: number | null;
   /** Nombre del cliente vinculado, para mostrar directo en listas. */
   clienteNombre: string | null;
