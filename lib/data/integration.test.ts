@@ -62,7 +62,7 @@ beforeEach(async () => {
 });
 
 async function crearClienteBasico(numero: number): Promise<number> {
-  return crearCliente({ nombre: `Cliente ${numero}`, numero });
+  return crearCliente({ nombre: `Cliente ${numero}` });
 }
 
 describe("flujo clientes", () => {
@@ -71,9 +71,10 @@ describe("flujo clientes", () => {
 
     const creado = await obtenerCliente(id);
     expect(creado?.nombre).toBe("Cliente 1");
-    expect(creado?.numero).toBe(1);
+    // El N° del cliente es su id (se asigna solo en el alta, no se edita).
+    expect(creado?.numero).toBe(id);
 
-    await actualizarCliente(id, { nombre: "Cliente Uno SRL", numero: 1 });
+    await actualizarCliente(id, { nombre: "Cliente Uno SRL" });
     expect((await obtenerCliente(id))?.nombre).toBe("Cliente Uno SRL");
 
     const lista = await listarClientes();
@@ -110,8 +111,8 @@ describe("flujo clientes", () => {
 
   it("inserta clientes en lote y las vistas livianas no exponen notas", async () => {
     const resultado = await crearClientesEnLote([
-      { numero: 10, nombre: "Cliente Diez", notas: "Nota interna secreta" },
-      { numero: 11, nombre: "Cliente Once" },
+      { nombre: "Cliente Diez", notas: "Nota interna secreta" },
+      { nombre: "Cliente Once" },
     ]);
     expect(resultado.importados).toBe(2);
     expect(resultado.errores).toBe(0);
@@ -130,15 +131,23 @@ describe("flujo clientes", () => {
     // El detalle sí conserva las notas.
     const detalle = await obtenerCliente(resumen[0].id);
     expect(detalle?.notas).toBe("Nota interna secreta");
+
+    // El N° de cada cliente importado es su id (automático, no editable).
+    for (const cliente of resumen) {
+      expect((await obtenerCliente(cliente.id))?.numero).toBe(cliente.id);
+      expect((await obtenerCliente(cliente.id))?.esCuentaCorriente).toBe(true);
+    }
   });
 
   it("obtiene o crea un cliente por nombre sin duplicar (envía del reparto)", async () => {
     const idCreado = await obtenerOCrearClientePorNombre("Peluquería Nuevo Sur");
     const cliente = await obtenerCliente(idCreado);
     expect(cliente?.nombre).toBe("Peluquería Nuevo Sur");
-    // Se crea solo con el nombre: el resto de los campos queda vacío.
-    expect(cliente?.numero).toBeNull();
+    // Se crea solo con el nombre (el resto de los campos queda vacío) y en
+    // cuenta corriente. El N° es el id.
+    expect(cliente?.numero).toBe(idCreado);
     expect(cliente?.cuit).toBeNull();
+    expect(cliente?.esCuentaCorriente).toBe(true);
 
     // El mismo nombre (sin distinguir mayúsculas) reutiliza el cliente.
     const idExistente = await obtenerOCrearClientePorNombre("peluquería nuevo sur");
@@ -147,7 +156,7 @@ describe("flujo clientes", () => {
   });
 
   it("no duplica el cliente del reparto si el nombre varía en tildes o espacios", async () => {
-    const id = await crearCliente({ nombre: "José  López", numero: null });
+    const id = await crearCliente({ nombre: "José  López" });
 
     // "Jose Lopez" (sin tilde, espacios juntos) reutiliza al existente.
     const reutilizado = await obtenerOCrearClientePorNombre("  jose lopez ");
@@ -251,6 +260,26 @@ describe("flujo repartos y asignación de remitos", () => {
 
     await actualizarEstadoReparto(repartoId, "completado");
     expect((await obtenerReparto(repartoId))?.estado).toBe("completado");
+  });
+
+  it("vincula el cliente del Envía al reparto al cobrar en cuenta corriente", async () => {
+    const clienteId = await crearCliente({ nombre: "Almacén Don José" });
+    const repartoId = await crearReparto({
+      fecha: "2026-09-13",
+      enviadoPor: "Almacén Don José",
+    });
+
+    // La Server Action resuelve/crea el cliente y lo pasa acá.
+    await actualizarFormaPagoReparto(repartoId, "cuenta_corriente", clienteId);
+
+    const reparto = await obtenerReparto(repartoId);
+    expect(reparto?.clienteId).toBe(clienteId);
+    expect(reparto?.formaPago).toBe("cuenta_corriente");
+    expect(reparto?.cobrado).toBe(true);
+
+    // Cambiar a otra forma NO desvincula al cliente.
+    await actualizarFormaPagoReparto(repartoId, "debito");
+    expect((await obtenerReparto(repartoId))?.clienteId).toBe(clienteId);
   });
 
   it("no reasigna un remito que ya tiene reparto", async () => {
@@ -464,12 +493,12 @@ describe("flujo repartos y asignación de remitos", () => {
       ],
     });
     // Cliente sin repartos no figura con deuda.
-    await crearClienteBasico(13);
+    const clienteSinRepartos = await crearClienteBasico(13);
 
     const resumen = await listarClientesResumen();
     const deudaA = resumen.find((c) => c.id === clienteA)?.deudaCentavos;
     const deudaB = resumen.find((c) => c.id === clienteB)?.deudaCentavos;
-    const deudaSinRepartos = resumen.find((c) => c.numero === 13)?.deudaCentavos;
+    const deudaSinRepartos = resumen.find((c) => c.id === clienteSinRepartos)?.deudaCentavos;
     expect(deudaA).toBe(800);
     expect(deudaB).toBe(100);
     expect(deudaSinRepartos).toBe(0);

@@ -10,7 +10,10 @@
 // ----------------------------------------------------------------------------
 export interface Cliente {
   id: number;
-  /** N° del cliente, cargado a mano al dar de alta. */
+  /**
+   * N° del cliente: SIEMPRE es igual al `id`. Se asigna solo en el alta
+   * (no se puede editar); la migración mantiene la sincronización.
+   */
   numero: number | null;
   nombre: string;
   cuit: string | null;
@@ -19,6 +22,8 @@ export interface Cliente {
   telefono: string | null;
   email: string | null;
   notas: string | null;
+  /** Todos los clientes registrados operan en cuenta corriente (clientes fijos). */
+  esCuentaCorriente: boolean;
   creadoEn: string;
   actualizadoEn: string;
 }

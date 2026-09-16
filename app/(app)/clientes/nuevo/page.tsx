@@ -12,7 +12,7 @@ export default function NuevoClientePage() {
     <div>
       <PageHeader
         title="Nuevo cliente"
-        description="Registrá un cliente para poder emitir remitos a su nombre."
+        description="Registrá un cliente para poder emitir remitos a su nombre. El N° se asigna automáticamente al guardar."
         action={
           <ButtonLink href="/clientes" variant="secondary">
             ← Volver a clientes

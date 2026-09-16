@@ -16,6 +16,7 @@ function mapearCliente(fila: FilaCliente): Cliente {
     telefono: fila.telefono ? String(fila.telefono) : null,
     email: fila.email ? String(fila.email) : null,
     notas: fila.notas ? String(fila.notas) : null,
+    esCuentaCorriente: Number(fila.es_cuenta_corriente ?? 1) === 1,
     creadoEn: String(fila.creado_en),
     actualizadoEn: String(fila.actualizado_en),
   };
@@ -33,6 +34,8 @@ export interface ClienteResumen {
   localidad: string | null;
   telefono: string | null;
   email: string | null;
+  /** Todos los clientes registrados operan en cuenta corriente (clientes fijos). */
+  esCuentaCorriente: boolean;
   /** Total pendiente de pago (repartos sin cobrar y no cancelados). */
   deudaCentavos: number;
 }
@@ -48,7 +51,7 @@ export async function listarClientes(): Promise<Cliente[]> {
   const db = await getDb();
   const resultado = await db.execute(
     `SELECT id, numero, nombre, cuit, direccion, localidad, telefono, email, notas,
-            creado_en, actualizado_en
+            es_cuenta_corriente, creado_en, actualizado_en
      FROM clientes
      ORDER BY COALESCE(numero, 999999) ASC, nombre COLLATE NOCASE ASC`,
   );
@@ -67,6 +70,7 @@ export async function listarClientesResumen(): Promise<ClienteResumen[]> {
   // y no cancelados: items de los remitos asignados + mercadería directa.
   const resultado = await db.execute(
     `SELECT c.id, c.numero, c.nombre, c.cuit, c.direccion, c.localidad, c.telefono, c.email,
+            c.es_cuenta_corriente,
             COALESCE(d_rem.deuda_centavos, 0) + COALESCE(d_rep.deuda_centavos, 0) AS deuda_centavos
      FROM clientes c
      LEFT JOIN (
@@ -108,6 +112,7 @@ export async function listarClientesResumen(): Promise<ClienteResumen[]> {
       localidad: f.localidad ? String(f.localidad) : null,
       telefono: f.telefono ? String(f.telefono) : null,
       email: f.email ? String(f.email) : null,
+      esCuentaCorriente: Number(f.es_cuenta_corriente ?? 1) === 1,
       deudaCentavos: Number(f.deuda_centavos ?? 0),
     };
   });
@@ -132,7 +137,7 @@ export async function obtenerCliente(id: number): Promise<Cliente | null> {
   const db = await getDb();
   const resultado = await db.execute(
     `SELECT id, numero, nombre, cuit, direccion, localidad, telefono, email, notas,
-            creado_en, actualizado_en
+            es_cuenta_corriente, creado_en, actualizado_en
      FROM clientes
      WHERE id = ?`,
     [id],
@@ -142,9 +147,6 @@ export async function obtenerCliente(id: number): Promise<Cliente | null> {
 }
 
 export interface DatosNuevoCliente {
-  /** N° del cliente. En el alta manual es obligatorio; en importaciones puede
-   *  venir null si la planilla no trae la columna. */
-  numero: number | null;
   nombre: string;
   cuit?: string;
   direccion?: string;
@@ -158,7 +160,8 @@ export type DatosEditarCliente = DatosNuevoCliente;
 
 /**
  * Crea un cliente y devuelve su id.
- * El N° se carga a mano en el formulario de alta (no se autoasigna).
+ * El N° del cliente NO se carga a mano: se asigna automáticamente igual al id
+ * de la base (por eso se sincroniza justo después del INSERT y no se edita).
  * (La data ya validada/recortada llega desde las Server Actions.)
  */
 export async function crearCliente(datos: DatosNuevoCliente): Promise<number> {
@@ -166,9 +169,8 @@ export async function crearCliente(datos: DatosNuevoCliente): Promise<number> {
 
   const resultado = await db.execute(
     `INSERT INTO clientes (numero, nombre, cuit, direccion, localidad, telefono, email, notas)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      datos.numero,
       datos.nombre,
       datos.cuit ?? null,
       datos.direccion ?? null,
@@ -178,7 +180,12 @@ export async function crearCliente(datos: DatosNuevoCliente): Promise<number> {
       datos.notas ?? null,
     ],
   );
-  return Number(resultado.lastInsertRowid ?? 0);
+  const id = Number(resultado.lastInsertRowid ?? 0);
+  if (id > 0) {
+    // El N° del cliente es su id (institucional, no editable).
+    await db.execute("UPDATE clientes SET numero = ? WHERE id = ?", [id, id]);
+  }
+  return id;
 }
 
 export interface ResultadoLoteClientes {
@@ -236,11 +243,12 @@ export async function obtenerClientePorNombre(nombre: string): Promise<number | 
 /**
  * Busca un cliente por nombre sin duplicarlo o lo crea al vuelo con ese nombre
  * y el resto de los campos vacíos. Devuelve el id del cliente encontrado o creado.
+ * (Los clientes creados acá también quedan en cuenta corriente, como todos.)
  */
 export async function obtenerOCrearClientePorNombre(nombre: string): Promise<number> {
   const existente = await obtenerClientePorNombre(nombre);
   if (existente != null) return existente;
-  return crearCliente({ nombre, numero: null });
+  return crearCliente({ nombre });
 }
 
 /** Cantidad de filas que se envían juntas en cada `batch()` a la base. */
@@ -262,9 +270,8 @@ export async function crearClientesEnLote(
     const chunk = filas.slice(desde, desde + TAMANO_LOTE_IMPORTACION);
     const statements: InStatement[] = chunk.map((datos) => ({
       sql: `INSERT INTO clientes (numero, nombre, cuit, direccion, localidad, telefono, email, notas)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
-        datos.numero,
         datos.nombre,
         datos.cuit ?? null,
         datos.direccion ?? null,
@@ -284,10 +291,14 @@ export async function crearClientesEnLote(
     }
   }
 
+  // El N° del cliente es su id: al terminar los chunks sincronizamos todas
+  // las filas (idempotente y también corrige clientes viejos des-alineados).
+  await db.execute("UPDATE clientes SET numero = id WHERE numero IS NULL OR numero != id");
+
   return { importados, errores };
 }
 
-/** Actualiza los datos de un cliente (el N° también se puede editar). */
+/** Actualiza los datos de un cliente. El N° NO se toca: siempre es igual al id. */
 export async function actualizarCliente(
   id: number,
   datos: DatosEditarCliente,
@@ -295,11 +306,10 @@ export async function actualizarCliente(
   const db = await getDb();
   await db.execute(
     `UPDATE clientes
-     SET numero = ?, nombre = ?, cuit = ?, direccion = ?, localidad = ?, telefono = ?,
+     SET nombre = ?, cuit = ?, direccion = ?, localidad = ?, telefono = ?,
          email = ?, notas = ?, actualizado_en = datetime('now')
      WHERE id = ?`,
     [
-      datos.numero,
       datos.nombre,
       datos.cuit ?? null,
       datos.direccion ?? null,

@@ -116,7 +116,10 @@ export function ClientesTablaBusqueda({
                       className="font-medium text-emerald-700 hover:underline"
                     >
                       {cliente.nombre}
-                    </Link>
+                    </Link>{" "}
+                    {cliente.esCuentaCorriente && (
+                      <Badge tone="sky">Cuenta corriente</Badge>
+                    )}
                   </Td>
                   <Td>
                     {cliente.cuit ?? (

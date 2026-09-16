@@ -251,16 +251,28 @@ export async function crearReparto(datos: DatosNuevoReparto): Promise<number> {
 /**
  * Guarda la forma de pago de un reparto y lo marca como cobrado. Si se pasa
  * null, el reparto vuelve a "Por cobrar" y la forma queda sin usar.
+ *
+ * Con "Cuenta corriente" la acción pasa `clienteId`: el cliente del reparto
+ * (campo "Envía") se registra/vincula en ese momento. Para el resto de las
+ * formas el cliente no se toca.
  */
 export async function actualizarFormaPagoReparto(
   id: number,
   formaPago: FormaPago | null,
+  clienteId?: number | null,
 ): Promise<void> {
   const db = await getDb();
-  await db.execute(
-    "UPDATE repartos SET forma_pago = ?, cobrado = ? WHERE id = ?",
-    [formaPago ?? "contado", formaPago ? 1 : 0, id],
-  );
+  if (clienteId != null) {
+    await db.execute(
+      "UPDATE repartos SET forma_pago = ?, cobrado = ?, cliente_id = ? WHERE id = ?",
+      [formaPago ?? "contado", formaPago ? 1 : 0, clienteId, id],
+    );
+  } else {
+    await db.execute(
+      "UPDATE repartos SET forma_pago = ?, cobrado = ? WHERE id = ?",
+      [formaPago ?? "contado", formaPago ? 1 : 0, id],
+    );
+  }
 }
 
 /** Actualiza el estado de un reparto. */
@@ -270,6 +282,24 @@ export async function actualizarEstadoReparto(
 ): Promise<void> {
   const db = await getDb();
   await db.execute("UPDATE repartos SET estado = ? WHERE id = ?", [estado, id]);
+}
+
+/** Devuelve el "Envía" (nombre en texto) y el cliente vinculado de un reparto.
+ *  Liviano: sirve para resolver/crear el cliente al cobrar en cuenta corriente. */
+export async function obtenerEnviaReparto(
+  id: number,
+): Promise<{ clienteId: number | null; enviadoPor: string | null } | null> {
+  const db = await getDb();
+  const resultado = await db.execute(
+    "SELECT cliente_id, chofer AS enviado_por FROM repartos WHERE id = ?",
+    [id],
+  );
+  if (resultado.rows.length === 0) return null;
+  const fila = resultado.rows[0] as Fila;
+  return {
+    clienteId: fila.cliente_id != null ? Number(fila.cliente_id) : null,
+    enviadoPor: fila.enviado_por ? String(fila.enviado_por) : null,
+  };
 }
 
 /** Devuelve un reparto por id (o null si no existe) con el valor total de los

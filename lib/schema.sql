@@ -10,17 +10,23 @@ PRAGMA foreign_keys = ON;
 -- Clientes
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clientes (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  numero          INTEGER, -- N° visible, cargado a mano al dar de alta
-  nombre          TEXT NOT NULL,
-  cuit            TEXT,
-  direccion       TEXT,
-  localidad       TEXT,
-  telefono        TEXT,
-  email           TEXT,
-  notas           TEXT,
-  creado_en       TEXT NOT NULL DEFAULT (datetime('now')),
-  actualizado_en  TEXT NOT NULL DEFAULT (datetime('now'))
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  -- N° visible de cliente: SIEMPRE es igual al id (se asigna solo al dar de
+  -- alta, no se edita). `migrate()`/`crearCliente` lo mantienen sincronizado.
+  numero              INTEGER,
+  nombre              TEXT NOT NULL,
+  cuit                TEXT,
+  direccion           TEXT,
+  localidad           TEXT,
+  telefono            TEXT,
+  email               TEXT,
+  notas               TEXT,
+  -- Todos los clientes registrados son fijos y operan en cuenta corriente:
+  -- se crean con 1 por defecto (el reparto con forma de pago "Cuenta
+  -- corriente" crea clientes así).
+  es_cuenta_corriente INTEGER NOT NULL DEFAULT 1,
+  creado_en           TEXT NOT NULL DEFAULT (datetime('now')),
+  actualizado_en      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- ----------------------------------------------------------------------------

@@ -4,7 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction } from "@/app/actions/estado";
 import { exigirAdmin } from "@/lib/auth";
-import { obtenerClientePorNombre } from "@/lib/data/clientes";
+import { obtenerClientePorNombre, obtenerOCrearClientePorNombre } from "@/lib/data/clientes";
 import { ESTADOS_REPARTO } from "@/lib/estados";
 import {
   actualizarEstadoReparto,
@@ -12,6 +12,7 @@ import {
   asignarRemitosAReparto,
   crearReparto,
   eliminarReparto,
+  obtenerEnviaReparto,
 } from "@/lib/data/repartos";
 import { crearRemito, proximoNumeroRemito } from "@/lib/data/remitos";
 import { FORMAS_PAGO, pesosACentavos } from "@/lib/types";
@@ -142,14 +143,20 @@ export async function crearRepartoAction(
 
   try {
     // "Envía" se elige con el buscador de clientes (trae `cliente_id`) o por
-    // nombre. El cliente puede estar en la lista, o ser un cliente que todavía
-    // no está cargado (no es un cliente fijo): en ese caso el reparto se crea
-    // igual, con el nombre en "Envía", pero sin vincular cliente ni crear uno.
+    // nombre. Con forma de pago "Cuenta corriente" el cliente se registra
+    // automáticamente (se crea si no está cargado) y queda vinculado: el
+    // "Envía" de un reparto en cuenta corriente SIEMPRE es un cliente de la
+    // base. Con otras formas de pago el reparto se guarda igual aunque el
+    // cliente no esté cargado (queda el nombre en "Envía", sin crear nada).
     const clienteIdEnviado = Number(formData.get("cliente_id"));
-    const clienteId =
+    const idExplicito =
       Number.isInteger(clienteIdEnviado) && clienteIdEnviado > 0
         ? clienteIdEnviado
-        : await obtenerClientePorNombre(nombreEnvia);
+        : null;
+    const clienteId =
+      formaPago === "cuenta_corriente"
+        ? await obtenerOCrearClientePorNombre(nombreEnvia)
+        : (idExplicito ?? (await obtenerClientePorNombre(nombreEnvia)));
 
     // El remito ya no se emite a nombre de un cliente: queda asociado al
     // reparto y el cliente sale del reparto. Por eso un reparto puede llevar
@@ -223,7 +230,21 @@ export async function actualizarFormaPagoRepartoAction(
     // La opción vacía ("Por cobrar") vuelve a dejar el reparto sin cobrar.
     const formaPago: FormaPago | null =
       formaPagoValor && esFormaPago(formaPagoValor) ? formaPagoValor : null;
-    await actualizarFormaPagoReparto(id, formaPago);
+
+    // Al cobrar en cuenta corriente, el "Envía" del reparto pasa a ser un
+    // cliente registrado automáticamente (se crea si todavía no está en la
+    // base) y queda vinculado al reparto.
+    if (formaPago === "cuenta_corriente") {
+      const reparto = await obtenerEnviaReparto(id);
+      const nombreEnvia = reparto?.enviadoPor;
+      if (!nombreEnvia) {
+        return { error: "El reparto no tiene un cliente (Envía) para registrar en cuenta corriente." };
+      }
+      const clienteId = await obtenerOCrearClientePorNombre(nombreEnvia);
+      await actualizarFormaPagoReparto(id, formaPago, clienteId);
+    } else {
+      await actualizarFormaPagoReparto(id, formaPago);
+    }
   } catch (error) {
     console.error("[repartos] error al actualizar forma de pago:", error);
     return { error: "No se pudo actualizar la forma de pago." };

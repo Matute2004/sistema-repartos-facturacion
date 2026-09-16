@@ -47,6 +47,14 @@ export default async function DetalleClientePage({
       label: "N° de cliente",
       valor: cliente.numero ?? <span className="text-zinc-400">Sin número</span>,
     },
+    {
+      label: "Tipo de cliente",
+      valor: cliente.esCuentaCorriente ? (
+        <Badge tone="sky">Cuenta corriente</Badge>
+      ) : (
+        <span className="text-zinc-400">—</span>
+      ),
+    },
     { label: "CUIT / CUIL", valor: cliente.cuit ? <Badge tone="sky">{cliente.cuit}</Badge> : <span className="text-zinc-400">No cargado</span> },
     { label: "Domicilio", valor: [cliente.direccion, cliente.localidad].filter(Boolean).join(", ") || "—" },
     { label: "Teléfono", valor: cliente.telefono ?? "—" },

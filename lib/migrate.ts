@@ -40,8 +40,22 @@ export async function migrate(): Promise<void> {
   await db.executeMultiple(sql);
 
   // Columnas agregadas en versiones posteriores al esquema inicial.
-  // `numero` (N° visible de cliente) se carga a mano al dar de alta.
+  // `numero` (N° visible de cliente) ya no se carga a mano: SIEMPRE es igual
+  // al id. Acá se deja el backfill idempotente por si quedó des-sincronizado
+  // (clientes viejos cargados con un N° manual).
   await agregarColumna(db, "clientes", "numero", "INTEGER");
+
+  // Todos los clientes registrados operan en cuenta corriente (clientes fijos).
+  // La columna se agrega con default 1: los clientes ya creados quedan así.
+  await agregarColumna(
+    db,
+    "clientes",
+    "es_cuenta_corriente",
+    "INTEGER NOT NULL DEFAULT 1",
+  );
+  await db.execute(
+    "UPDATE clientes SET numero = id WHERE numero IS NULL OR numero != id",
+  );
 
   // El reparto se vincula a un cliente (campo "Envía"), puede llevar remito
   // o una mercadería directa, y registra la forma de pago. `cobrado` indica si

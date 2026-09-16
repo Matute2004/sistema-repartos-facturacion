@@ -264,6 +264,7 @@ export async function obtenerRemitoCompleto(
                   c.direccion AS cliente_direccion, c.localidad AS cliente_localidad,
                   c.telefono AS cliente_telefono, c.email AS cliente_email,
                   c.notas AS cliente_notas,
+                  c.es_cuenta_corriente AS cliente_es_cuenta_corriente,
                   c.creado_en AS cliente_creado_en,
                   c.actualizado_en AS cliente_actualizado_en,
                   COALESCE(SUM(ri.cantidad * ri.precio_unitario_centavos), 0) AS valor_centavos
@@ -318,6 +319,7 @@ export async function obtenerRemitoCompleto(
             : null,
           email: fila.cliente_email ? String(fila.cliente_email) : null,
           notas: fila.cliente_notas ? String(fila.cliente_notas) : null,
+          esCuentaCorriente: Number(fila.cliente_es_cuenta_corriente ?? 1) === 1,
           creadoEn: String(fila.cliente_creado_en),
           actualizadoEn: String(fila.cliente_actualizado_en),
         }

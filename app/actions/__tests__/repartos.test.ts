@@ -12,22 +12,26 @@ const {
   redirect,
   exigirAdminMock,
   obtenerClientePorNombre,
+  obtenerOCrearClientePorNombre,
   crearReparto,
   asignarRemitosAReparto,
   crearRemito,
   proximoNumeroRemito,
   actualizarFormaPagoReparto,
+  obtenerEnviaReparto,
 } = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
   updateTag: vi.fn(),
   redirect: vi.fn(),
   exigirAdminMock: vi.fn(),
   obtenerClientePorNombre: vi.fn(),
+  obtenerOCrearClientePorNombre: vi.fn(),
   crearReparto: vi.fn(),
   asignarRemitosAReparto: vi.fn(),
   crearRemito: vi.fn(),
   proximoNumeroRemito: vi.fn(),
   actualizarFormaPagoReparto: vi.fn(),
+  obtenerEnviaReparto: vi.fn(),
 }));
 
 const SENAL_REDIRECT = "NEXT_REDIRECT";
@@ -37,7 +41,7 @@ vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/lib/auth", () => ({ exigirAdmin: exigirAdminMock }));
 vi.mock("@/lib/data/clientes", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/data/clientes")>();
-  return { ...original, obtenerClientePorNombre };
+  return { ...original, obtenerClientePorNombre, obtenerOCrearClientePorNombre };
 });
 vi.mock("@/lib/data/repartos", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/data/repartos")>();
@@ -46,6 +50,7 @@ vi.mock("@/lib/data/repartos", async (importOriginal) => {
     crearReparto,
     asignarRemitosAReparto,
     actualizarFormaPagoReparto,
+    obtenerEnviaReparto,
   };
 });
 vi.mock("@/lib/data/remitos", async (importOriginal) => {
@@ -66,6 +71,11 @@ beforeEach(() => {
     throw new Error(SENAL_REDIRECT);
   });
   obtenerClientePorNombre.mockResolvedValue(42);
+  obtenerOCrearClientePorNombre.mockResolvedValue(43);
+  obtenerEnviaReparto.mockResolvedValue({
+    clienteId: null,
+    enviadoPor: "Comercio Nuevo",
+  });
   crearReparto.mockResolvedValue(9);
   proximoNumeroRemito.mockResolvedValue(12);
   crearRemito.mockResolvedValue(99);
@@ -120,6 +130,27 @@ describe("crearRepartoAction", () => {
     // Sin remito: no emite ningún remito.
     expect(crearRemito).not.toHaveBeenCalled();
     expect(redirect).toHaveBeenCalledWith("/repartos");
+  });
+
+  it("con «cuenta corriente» crea/vincula el cliente del Envía automáticamente", async () => {
+    const formData = new FormData();
+    formData.set("fecha", "2026-09-13");
+    formData.set("enviado_por", "Comercio Nuevo");
+    formData.set("forma_pago", "cuenta_corriente");
+
+    await expect(crearRepartoAction(estadoInicial, formData)).rejects.toThrow(
+      SENAL_REDIRECT,
+    );
+
+    // El cliente se registra (o reutiliza) siempre: no queda en texto libre.
+    expect(obtenerOCrearClientePorNombre).toHaveBeenCalledWith("Comercio Nuevo");
+    expect(obtenerClientePorNombre).not.toHaveBeenCalled();
+    expect(crearReparto).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clienteId: 43,
+        formaPago: "cuenta_corriente",
+      }),
+    );
   });
 
   it("deja la forma de pago vacía (por cobrar) cuando no se elige", async () => {
@@ -309,6 +340,48 @@ describe("actualizarFormaPagoRepartoAction", () => {
     expect(resultado.error).toBeNull();
     expect(actualizarFormaPagoReparto).toHaveBeenCalledWith(3, null);
     expect(revalidatePath).toHaveBeenCalledWith("/repartos");
+  });
+
+  it("«cuenta corriente» registra y vincula el cliente del Envía del reparto", async () => {
+    obtenerEnviaReparto.mockResolvedValue({
+      clienteId: null,
+      enviadoPor: "Almacén Don José",
+    });
+
+    const formData = new FormData();
+    formData.set("id", "3");
+    formData.set("forma_pago", "cuenta_corriente");
+
+    const resultado = await actualizarFormaPagoRepartoAction(
+      estadoInicial,
+      formData,
+    );
+    expect(resultado.error).toBeNull();
+    expect(obtenerEnviaReparto).toHaveBeenCalledWith(3);
+    expect(obtenerOCrearClientePorNombre).toHaveBeenCalledWith(
+      "Almacén Don José",
+    );
+    expect(actualizarFormaPagoReparto).toHaveBeenCalledWith(
+      3,
+      "cuenta_corriente",
+      43,
+    );
+  });
+
+  it("rechaza «cuenta corriente» si el reparto no tiene un Envía", async () => {
+    obtenerEnviaReparto.mockResolvedValue({ clienteId: null, enviadoPor: null });
+
+    const formData = new FormData();
+    formData.set("id", "3");
+    formData.set("forma_pago", "cuenta_corriente");
+
+    const resultado = await actualizarFormaPagoRepartoAction(
+      estadoInicial,
+      formData,
+    );
+    expect(resultado.error).toContain("Envía");
+    expect(obtenerOCrearClientePorNombre).not.toHaveBeenCalled();
+    expect(actualizarFormaPagoReparto).not.toHaveBeenCalled();
   });
 
   it("rechaza una forma de pago que no está en el catálogo", async () => {

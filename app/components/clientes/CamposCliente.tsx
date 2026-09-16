@@ -27,20 +27,27 @@ export function CamposCliente({
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="N°" htmlFor="numero" required>
-          <Input
-            id="numero"
-            name="numero"
-            type="number"
-            min={1}
-            step={1}
-            required
-            defaultValue={cliente?.numero ?? ""}
-            placeholder="Ej: 12"
-            inputMode="numeric"
-            disabled={disabled}
-          />
-        </Field>
+        {cliente ? (
+          <Field
+            label="N° de cliente"
+            htmlFor="numero"
+            hint="Es el id del cliente: no se puede editar."
+          >
+            <Input
+              id="numero"
+              value={cliente.numero ?? ""}
+              readOnly
+              disabled
+              tabIndex={-1}
+              aria-readonly="true"
+            />
+          </Field>
+        ) : (
+          <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800 sm:col-span-2">
+            El <strong>N° de cliente</strong> se asigna solo al guardar (es el
+            id en la base) y no se puede editar.
+          </div>
+        )}
         <Field label="Nombre" htmlFor="nombre" required>
           <Input
             id="nombre"
@@ -113,6 +120,10 @@ export function CamposCliente({
           disabled={disabled}
         />
       </Field>
+      <p className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+        Todos los clientes se registran como <strong>cuenta corriente</strong>{" "}
+        (clientes fijos): la deuda acumulada se controla desde este módulo.
+      </p>
     </>
   );
 }

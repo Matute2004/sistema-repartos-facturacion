@@ -38,8 +38,10 @@ export function recortarTexto(valor: unknown, maximo: number): string {
 
 /**
  * Normaliza una fila cruda de la planilla. Devuelve `null` si la fila no tiene
- * nombre (obligatorio). El N° inválido o ausente pasa como `null` (el esquema
- * lo permite y el alta manual es lo que lo exige).
+ * nombre (obligatorio). El N° de la planilla ya no se usa: el N° real del
+ * cliente es su id (se asigna solo en la carga). Se conserva la lectura por
+ * compatibilidad con planillas que traen la columna "N°", pero la capa de
+ * datos lo ignora.
  */
 export function normalizarFilaImportacion(
   bruta: unknown,

@@ -60,6 +60,7 @@ export function RepartoForm({
   const [busqueda, setBusqueda] = useState("");
   const [clienteElegidoId, setClienteElegidoId] = useState<number | null>(null);
   const [listaAbierta, setListaAbierta] = useState(false);
+  const [formaPago, setFormaPago] = useState("");
 
   const clientesFiltrados = useMemo(() => {
     const termino = busqueda.trim().toLowerCase();
@@ -146,7 +147,7 @@ export function RepartoForm({
           label="Cliente (Envía)"
           htmlFor="cliente_buscar"
           required
-          hint="Buscá un cliente ya cargado con la lupa para vincularlo al reparto. Si no está en la lista, el reparto se guarda igual: queda con el nombre escrito, sin crear ni vincular un cliente."
+          hint="Si la forma de pago es Cuenta corriente, el cliente del campo Envía se registra automáticamente al guardar (se crea si no está cargado). Con otras formas, si no está en la lista, el reparto se guarda igual con el nombre escrito, sin crear ni vincular un cliente."
         >
           <div className="relative">
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-zinc-400">
@@ -220,8 +221,10 @@ export function RepartoForm({
                 ))}
                 {clientesFiltrados.length === 0 && (
                   <li className="flex w-full items-center gap-2 border-t border-zinc-100 px-3 py-2 text-left text-sm text-zinc-500">
-                    «{busqueda.trim()}» no está en la lista de clientes. El
-                    reparto se guardará igual, sin crear este cliente.
+                    «{busqueda.trim()}» no está en la lista de clientes.{" "}
+                    {formaPago === "cuenta_corriente"
+                      ? "Se creará automáticamente como cliente (cuenta corriente) al guardar el reparto."
+                      : "El reparto se guardará igual, sin crear este cliente."}
                   </li>
                 )}
               </ul>
@@ -239,12 +242,13 @@ export function RepartoForm({
         <Field
           label="Forma de pago"
           htmlFor="forma_pago"
-          hint="Dejalo en «Por cobrar» si todavía no te lo pagan. Recién se elige cuando se cobra."
+          hint="Dejalo en «Por cobrar» si todavía no te lo pagan. Con «Cuenta corriente» el cliente (Envía) se registra automáticamente."
         >
           <Select
             id="forma_pago"
             name="forma_pago"
-            defaultValue=""
+            value={formaPago}
+            onChange={(evento) => setFormaPago(evento.target.value)}
             disabled={pending}
             className="text-zinc-500"
           >

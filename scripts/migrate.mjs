@@ -47,7 +47,9 @@ try {
   await db.executeMultiple(sql);
 
   // Columnas agregadas en versiones posteriores al esquema inicial.
-  // `numero` (N° visible de cliente) se carga a mano al dar de alta.
+  // `numero` (N° visible de cliente) ya no se carga a mano: SIEMPRE es igual
+  // al id. Acá se deja el backfill idempotente por si quedó des-sincronizado
+  // (clientes viejos cargados con un N° manual).
   try {
     await db.execute("ALTER TABLE clientes ADD COLUMN numero INTEGER");
   } catch (error) {
@@ -59,6 +61,25 @@ try {
       throw error;
     }
   }
+
+  // Todos los clientes registrados operan en cuenta corriente (clientes fijos).
+  // La columna se agrega con default 1: los clientes ya creados quedan así.
+  try {
+    await db.execute(
+      "ALTER TABLE clientes ADD COLUMN es_cuenta_corriente INTEGER NOT NULL DEFAULT 1",
+    );
+  } catch (error) {
+    const mensaje = String(error);
+    if (
+      !mensaje.includes("duplicate column") &&
+      !mensaje.includes("already has column")
+    ) {
+      throw error;
+    }
+  }
+  await db.execute(
+    "UPDATE clientes SET numero = id WHERE numero IS NULL OR numero != id",
+  );
 
   // El reparto ahora se vincula a un cliente (campo "Envía"), puede llevar
   // remito o una mercadería directa, y registra la forma de pago. `cobrado`
