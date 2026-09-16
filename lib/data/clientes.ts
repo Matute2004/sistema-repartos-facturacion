@@ -199,16 +199,15 @@ function normalizarNombre(nombre: string): string {
 }
 
 /**
- * Busca un cliente por nombre sin duplicarlo o lo crea al vuelo con ese nombre
- * y el resto de los campos vacíos. Se usa cuando el "Envía" del reparto es un
- * cliente que todavía no está registrado.
+ * Busca un cliente por nombre y devuelve su id, o null si todavía no está
+ * registrado. No lo crea: los repartos solo se pueden guardar para clientes
+ * que ya existen en la lista.
  *
  * Primero busca coincidencia exacta sin distinguir mayúsculas (rápida en la DB);
  * si no aparece, compara normalizado (ignorando mayúsculas, tildes y espacios)
- * para que "Jose Lopez" reutilice a "José López" en vez de crear un duplicado.
- * Devuelve el id del cliente encontrado o creado.
+ * para que "Jose Lopez" encuentre a "José López".
  */
-export async function obtenerOCrearClientePorNombre(nombre: string): Promise<number> {
+export async function obtenerClientePorNombre(nombre: string): Promise<number | null> {
   const db = await getDb();
   const existente = await db.execute(
     `SELECT id FROM clientes WHERE nombre = ? COLLATE NOCASE LIMIT 1`,
@@ -229,6 +228,16 @@ export async function obtenerOCrearClientePorNombre(nombre: string): Promise<num
     }
   }
 
+  return null;
+}
+
+/**
+ * Busca un cliente por nombre sin duplicarlo o lo crea al vuelo con ese nombre
+ * y el resto de los campos vacíos. Devuelve el id del cliente encontrado o creado.
+ */
+export async function obtenerOCrearClientePorNombre(nombre: string): Promise<number> {
+  const existente = await obtenerClientePorNombre(nombre);
+  if (existente != null) return existente;
   return crearCliente({ nombre, numero: null });
 }
 

@@ -11,7 +11,7 @@ const {
   updateTag,
   redirect,
   exigirAdminMock,
-  obtenerOCrearClientePorNombre,
+  obtenerClientePorNombre,
   crearReparto,
   asignarRemitosAReparto,
   crearRemito,
@@ -22,7 +22,7 @@ const {
   updateTag: vi.fn(),
   redirect: vi.fn(),
   exigirAdminMock: vi.fn(),
-  obtenerOCrearClientePorNombre: vi.fn(),
+  obtenerClientePorNombre: vi.fn(),
   crearReparto: vi.fn(),
   asignarRemitosAReparto: vi.fn(),
   crearRemito: vi.fn(),
@@ -37,7 +37,7 @@ vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/lib/auth", () => ({ exigirAdmin: exigirAdminMock }));
 vi.mock("@/lib/data/clientes", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/data/clientes")>();
-  return { ...original, obtenerOCrearClientePorNombre };
+  return { ...original, obtenerClientePorNombre };
 });
 vi.mock("@/lib/data/repartos", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/data/repartos")>();
@@ -65,7 +65,7 @@ beforeEach(() => {
   redirect.mockImplementation(() => {
     throw new Error(SENAL_REDIRECT);
   });
-  obtenerOCrearClientePorNombre.mockResolvedValue(42);
+  obtenerClientePorNombre.mockResolvedValue(42);
   crearReparto.mockResolvedValue(9);
   proximoNumeroRemito.mockResolvedValue(12);
   crearRemito.mockResolvedValue(99);
@@ -77,7 +77,7 @@ describe("crearRepartoAction", () => {
     expect(resultado.error).toContain("fecha");
   });
 
-  it("crea el cliente al vuelo y guarda la mercadería directa (varias líneas) cuando NO lleva remito", async () => {
+  it("resuelve el cliente por nombre (sin crearlo) y guarda la mercadería directa (varias líneas) cuando NO lleva remito", async () => {
     const formData = new FormData();
     formData.set("fecha", "2026-09-13");
     formData.set("enviado_por", "Comercio Nuevo");
@@ -94,7 +94,7 @@ describe("crearRepartoAction", () => {
       SENAL_REDIRECT,
     );
 
-    expect(obtenerOCrearClientePorNombre).toHaveBeenCalledWith("Comercio Nuevo");
+    expect(obtenerClientePorNombre).toHaveBeenCalledWith("Comercio Nuevo");
     expect(crearReparto).toHaveBeenCalledWith({
       fecha: "2026-09-13",
       estado: "pendiente",
@@ -149,7 +149,7 @@ describe("crearRepartoAction", () => {
       SENAL_REDIRECT,
     );
 
-    expect(obtenerOCrearClientePorNombre).not.toHaveBeenCalled();
+    expect(obtenerClientePorNombre).not.toHaveBeenCalled();
     expect(crearReparto).toHaveBeenCalledWith(
       expect.objectContaining({ clienteId: 15 }),
     );
@@ -195,6 +195,23 @@ describe("crearRepartoAction", () => {
         },
       ],
     });
+  });
+
+  it("rechaza y NO crea el reparto si el cliente no está en la lista de clientes", async () => {
+    obtenerClientePorNombre.mockResolvedValue(null);
+    const formData = new FormData();
+    formData.set("fecha", "2026-09-13");
+    formData.set("enviado_por", "Cliente Inexistente");
+    formData.append("reparto_item_descripcion", "Caja surtida");
+    formData.append("reparto_item_cantidad", "1");
+    formData.append("reparto_item_precio", "500");
+
+    const resultado = await crearRepartoAction(estadoInicial, formData);
+
+    expect(resultado.error).toContain("no está registrado");
+    expect(crearReparto).not.toHaveBeenCalled();
+    expect(crearRemito).not.toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
   });
 
   it("pide el cliente (Envía) antes de crear el reparto", async () => {

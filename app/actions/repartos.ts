@@ -4,7 +4,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EstadoAction } from "@/app/actions/estado";
 import { exigirAdmin } from "@/lib/auth";
-import { obtenerOCrearClientePorNombre } from "@/lib/data/clientes";
+import { obtenerClientePorNombre } from "@/lib/data/clientes";
 import { ESTADOS_REPARTO } from "@/lib/estados";
 import {
   actualizarEstadoReparto,
@@ -141,14 +141,22 @@ export async function crearRepartoAction(
   }
 
   try {
-    // "Envía" se elige con el buscador de clientes (trae `cliente_id`) o se
-    // escribe un nombre nuevo: en ese caso el cliente se crea con el resto de
-    // los campos vacíos.
+    // "Envía" se elige con el buscador de clientes (trae `cliente_id`) o por
+    // nombre. El cliente tiene que estar en la lista de clientes: si no está
+    // registrado, no se crea ni el cliente ni el reparto.
     const clienteIdEnviado = Number(formData.get("cliente_id"));
-    const clienteId =
-      Number.isInteger(clienteIdEnviado) && clienteIdEnviado > 0
-        ? clienteIdEnviado
-        : await obtenerOCrearClientePorNombre(nombreEnvia);
+    let clienteId: number;
+    if (Number.isInteger(clienteIdEnviado) && clienteIdEnviado > 0) {
+      clienteId = clienteIdEnviado;
+    } else {
+      const clienteEncontrado = await obtenerClientePorNombre(nombreEnvia);
+      if (clienteEncontrado == null) {
+        return {
+          error: `El cliente «${nombreEnvia}» no está registrado en la lista de clientes. Creálo primero en la sección Clientes.`,
+        };
+      }
+      clienteId = clienteEncontrado;
+    }
 
     const repartoId = await crearReparto({
       fecha,
