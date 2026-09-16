@@ -11,11 +11,13 @@ import { RemitoModal } from "@/app/components/repartos/RemitoModal";
 
 /**
  * Tabla de repartos (hoja de ruta diaria) con buscador arriba. Filtra por
- * cliente: quién envía (cliente vinculado o texto libre) o quién recibe.
+ * cliente: Flete Origen (quién envía) o Flete Destino (quién recibe).
  *
  * Los repartos llegan ya filtrados por día y ordenados desde la capa de datos.
  * Ya no hay estado ni casilla de completado: cada fila apenas muestra los
  * datos del reparto y la forma de pago (cobrado / por cobrar) se elige inline.
+ * El monto se pinta en rojo si falta cobrar y en verde cuando ya se cobró
+ * (con la forma de pago que sea).
  */
 export function RepartosTablaBusqueda({ repartos }: { repartos: Reparto[] }) {
   const [consulto, setConsulto] = useState("");
@@ -51,7 +53,7 @@ export function RepartosTablaBusqueda({ repartos }: { repartos: Reparto[] }) {
             type="search"
             value={consulto}
             onChange={(evento) => setConsulto(evento.target.value)}
-            placeholder="Buscar por quién envía o quién recibe…"
+            placeholder="Buscar por Flete Origen o Flete Destino…"
             autoComplete="off"
           />
         </div>
@@ -69,8 +71,8 @@ export function RepartosTablaBusqueda({ repartos }: { repartos: Reparto[] }) {
           <thead>
             <tr>
               <Th>Fecha</Th>
-              <Th>Envía</Th>
-              <Th>Recibe</Th>
+              <Th>Flete Origen</Th>
+              <Th>Flete Destino</Th>
               <Th>Observaciones</Th>
               <Th>Remitos</Th>
               <Th className="text-right">Valor</Th>
@@ -89,14 +91,24 @@ export function RepartosTablaBusqueda({ repartos }: { repartos: Reparto[] }) {
                   </Link>
                 </Td>
                 <Td>
-                  {reparto.clienteNombre ?? reparto.enviadoPor ?? (
-                    <span className="text-zinc-400">—</span>
-                  )}
+                  <NombreFlete
+                    nombre={reparto.enviadoPor}
+                    clienteId={
+                      esClienteDelLado(reparto, "origen")
+                        ? reparto.clienteId
+                        : null
+                    }
+                  />
                 </Td>
                 <Td>
-                  {reparto.recibidoPor ?? (
-                    <span className="text-zinc-400">—</span>
-                  )}
+                  <NombreFlete
+                    nombre={reparto.recibidoPor}
+                    clienteId={
+                      esClienteDelLado(reparto, "destino")
+                        ? reparto.clienteId
+                        : null
+                    }
+                  />
                 </Td>
                 <Td>
                   {reparto.observaciones ?? (
@@ -110,7 +122,11 @@ export function RepartosTablaBusqueda({ repartos }: { repartos: Reparto[] }) {
                     <RemitoModal remitos={reparto.remitos} />
                   )}
                 </Td>
-                <Td className="whitespace-nowrap text-right font-medium text-zinc-900">
+                <Td
+                  className={`whitespace-nowrap text-right font-semibold ${
+                    reparto.cobrado ? "text-emerald-700" : "text-red-600"
+                  }`}
+                >
                   {formatPesos(reparto.valorCentavos)}
                 </Td>
                 <Td className="whitespace-nowrap">
@@ -126,4 +142,38 @@ export function RepartosTablaBusqueda({ repartos }: { repartos: Reparto[] }) {
       )}
     </div>
   );
+}
+
+/** Devuelve true si el cliente vinculado al reparto corresponde al lado dado.
+ *  Ej: un reparto en cuenta corriente cuyo cliente es el Flete Destino. */
+function esClienteDelLado(
+  reparto: Reparto,
+  lado: "origen" | "destino",
+): boolean {
+  if (reparto.clienteId == null) return false;
+  const nombre = lado === "origen" ? reparto.enviadoPor : reparto.recibidoPor;
+  return nombre != null && reparto.clienteNombre === nombre;
+}
+
+/** Nombre de una punta del flete: con link a la ficha del cliente cuando el
+ *  cliente vinculado al reparto es exactamente esa punta. */
+function NombreFlete({
+  nombre,
+  clienteId,
+}: {
+  nombre: string | null;
+  clienteId: number | null;
+}) {
+  if (nombre == null) return <span className="text-zinc-400">—</span>;
+  if (clienteId != null) {
+    return (
+      <Link
+        href={`/clientes/${clienteId}`}
+        className="font-semibold text-emerald-700 underline-offset-2 hover:underline"
+      >
+        {nombre}
+      </Link>
+    );
+  }
+  return <span className="text-zinc-800">{nombre}</span>;
 }

@@ -57,14 +57,14 @@ export default async function DetalleRepartoPage({
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Envía
+                Flete Origen
               </p>
-              {reparto.clienteId ? (
+              {reparto.clienteNombre === reparto.enviadoPor ? (
                 <Link
                   href={`/clientes/${reparto.clienteId}`}
                   className="mt-1 inline-block text-sm text-emerald-700 underline-offset-2 hover:underline"
                 >
-                  {reparto.clienteNombre ?? reparto.enviadoPor}
+                  {reparto.enviadoPor}
                 </Link>
               ) : (
                 <p className="mt-1 text-sm text-zinc-900">
@@ -76,13 +76,22 @@ export default async function DetalleRepartoPage({
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Recibe
+                Flete Destino
               </p>
-              <p className="mt-1 text-sm text-zinc-900">
-                {reparto.recibidoPor ?? (
-                  <span className="text-zinc-400">—</span>
-                )}
-              </p>
+              {reparto.clienteNombre === reparto.recibidoPor ? (
+                <Link
+                  href={`/clientes/${reparto.clienteId}`}
+                  className="mt-1 inline-block text-sm text-emerald-700 underline-offset-2 hover:underline"
+                >
+                  {reparto.recibidoPor}
+                </Link>
+              ) : (
+                <p className="mt-1 text-sm text-zinc-900">
+                  {reparto.recibidoPor ?? (
+                    <span className="text-zinc-400">—</span>
+                  )}
+                </p>
+              )}
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
@@ -105,7 +114,11 @@ export default async function DetalleRepartoPage({
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Valor total
               </p>
-              <p className="mt-1 text-sm font-bold text-zinc-900">
+              <p
+                className={`mt-1 text-sm font-bold ${
+                  reparto.cobrado ? "text-emerald-700" : "text-red-600"
+                }`}
+              >
                 {formatPesos(reparto.valorCentavos)}
               </p>
             </div>

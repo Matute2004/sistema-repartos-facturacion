@@ -48,6 +48,19 @@ export async function listarGastosDelMes(mes: string): Promise<Gasto[]> {
   return resultado.rows.map((fila) => mapearGasto(fila as FilaGasto));
 }
 
+/** Lista los gastos de UN día (YYYY-MM-DD), del más reciente al más viejo. */
+export async function listarGastosDelDia(fecha: string): Promise<Gasto[]> {
+  const db = await getDb();
+  const resultado = await db.execute(
+    `SELECT id, fecha, categoria, descripcion, proveedor, monto_centavos, creado_en
+     FROM gastos
+     WHERE fecha = ?
+     ORDER BY id DESC`,
+    [fecha],
+  );
+  return resultado.rows.map((fila) => mapearGasto(fila as FilaGasto));
+}
+
 export interface GastosDelMes {
   gastos: Gasto[];
   totalCentavos: number;

@@ -10,7 +10,7 @@ import {
   asignarRemitosAReparto,
   crearReparto,
   eliminarReparto,
-  obtenerEnviaReparto,
+  obtenerPartesReparto,
 } from "@/lib/data/repartos";
 import { crearRemito, proximoNumeroRemito } from "@/lib/data/remitos";
 import { FORMAS_PAGO, pesosACentavos } from "@/lib/types";
@@ -113,7 +113,7 @@ export async function crearRepartoAction(
 
   const nombreEnvia = texto(formData, "enviado_por");
   if (!nombreEnvia) {
-    return { error: "Completá quién envía (el cliente del reparto)." };
+    return { error: "Completá el Flete Origen (quién envía el reparto)." };
   }
 
   const llevaRemito = formData.get("lleva_remito") !== null;
@@ -136,21 +136,34 @@ export async function crearRepartoAction(
   }
 
   try {
-    // "Envía" se elige con el buscador de clientes (trae `cliente_id`) o por
-    // nombre. Con forma de pago "Cuenta corriente" el cliente se registra
-    // automáticamente (se crea si no está cargado) y queda vinculado: el
-    // "Envía" de un reparto en cuenta corriente SIEMPRE es un cliente de la
-    // base. Con otras formas de pago el reparto se guarda igual aunque el
-    // cliente no esté cargado (queda el nombre en "Envía", sin crear nada).
+    // El Flete Origen se elige con el buscador de clientes (trae `cliente_id`)
+    // o por nombre. Con forma de pago "Cuenta corriente" se elige CUÁL de las
+    // dos puntas es el cliente que se registra (se crea si no está cargado):
+    // el Flete Origen (quién envía) o el Flete Destino (quién recibe). En ese
+    // caso el cliente de la base SIEMPRE queda vinculado al reparto. Con el
+    // resto de las formas el reparto se guarda igual aunque el cliente no esté
+    // en la lista (queda el nombre en el Flete Origen, sin crear nada).
     const clienteIdEnviado = Number(formData.get("cliente_id"));
     const idExplicito =
       Number.isInteger(clienteIdEnviado) && clienteIdEnviado > 0
         ? clienteIdEnviado
         : null;
-    const clienteId =
-      formaPago === "cuenta_corriente"
-        ? await obtenerOCrearClientePorNombre(nombreEnvia)
-        : (idExplicito ?? (await obtenerClientePorNombre(nombreEnvia)));
+
+    let clienteId = idExplicito;
+    if (formaPago === "cuenta_corriente") {
+      const lado = texto(formData, "cliente_cc_lado") || "origen";
+      const nombreCliente =
+        lado === "destino" ? texto(formData, "recibido_por") : nombreEnvia;
+      if (!nombreCliente) {
+        return {
+          error:
+            "Con «Cuenta corriente» el cliente es el Flete Origen o el Flete Destino: completá el nombre del lado elegido.",
+        };
+      }
+      clienteId = await obtenerOCrearClientePorNombre(nombreCliente);
+    } else if (clienteId == null) {
+      clienteId = await obtenerClientePorNombre(nombreEnvia);
+    }
 
     // El remito ya no se emite a nombre de un cliente: queda asociado al
     // reparto y el cliente sale del reparto. Por eso un reparto puede llevar
@@ -224,16 +237,24 @@ export async function actualizarFormaPagoRepartoAction(
     const formaPago: FormaPago | null =
       formaPagoValor && esFormaPago(formaPagoValor) ? formaPagoValor : null;
 
-    // Al cobrar en cuenta corriente, el "Envía" del reparto pasa a ser un
-    // cliente registrado automáticamente (se crea si todavía no está en la
-    // base) y queda vinculado al reparto.
+    // Al cobrar en cuenta corriente, el reparto queda vinculado a un cliente
+    // registrado: si ya lo tenía (se eligió en el alta o el Flete Origen era
+    // un cliente cargado) se conserva; si no, se registra/reutiliza el cliente
+    // del Flete Origen y, a falta de él, el del Flete Destino.
     if (formaPago === "cuenta_corriente") {
-      const reparto = await obtenerEnviaReparto(id);
-      const nombreEnvia = reparto?.enviadoPor;
-      if (!nombreEnvia) {
-        return { error: "El reparto no tiene un cliente (Envía) para registrar en cuenta corriente." };
+      const reparto = await obtenerPartesReparto(id);
+      if (!reparto) {
+        return { error: "Reparto inválido." };
       }
-      const clienteId = await obtenerOCrearClientePorNombre(nombreEnvia);
+      const nombreCliente = reparto.enviadoPor ?? reparto.recibidoPor;
+      if (reparto.clienteId == null && !nombreCliente) {
+        return {
+          error:
+            "El reparto no tiene un Flete Origen ni un Flete Destino para registrar en cuenta corriente.",
+        };
+      }
+      const clienteId =
+        reparto.clienteId ?? (await obtenerOCrearClientePorNombre(nombreCliente as string));
       await actualizarFormaPagoReparto(id, formaPago, clienteId);
     } else {
       await actualizarFormaPagoReparto(id, formaPago);

@@ -18,7 +18,7 @@ const {
   crearRemito,
   proximoNumeroRemito,
   actualizarFormaPagoReparto,
-  obtenerEnviaReparto,
+  obtenerPartesReparto,
 } = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
   updateTag: vi.fn(),
@@ -31,7 +31,7 @@ const {
   crearRemito: vi.fn(),
   proximoNumeroRemito: vi.fn(),
   actualizarFormaPagoReparto: vi.fn(),
-  obtenerEnviaReparto: vi.fn(),
+  obtenerPartesReparto: vi.fn(),
 }));
 
 const SENAL_REDIRECT = "NEXT_REDIRECT";
@@ -50,7 +50,7 @@ vi.mock("@/lib/data/repartos", async (importOriginal) => {
     crearReparto,
     asignarRemitosAReparto,
     actualizarFormaPagoReparto,
-    obtenerEnviaReparto,
+    obtenerPartesReparto,
   };
 });
 vi.mock("@/lib/data/remitos", async (importOriginal) => {
@@ -72,9 +72,10 @@ beforeEach(() => {
   });
   obtenerClientePorNombre.mockResolvedValue(42);
   obtenerOCrearClientePorNombre.mockResolvedValue(43);
-  obtenerEnviaReparto.mockResolvedValue({
+  obtenerPartesReparto.mockResolvedValue({
     clienteId: null,
     enviadoPor: "Comercio Nuevo",
+    recibidoPor: "Chofer",
   });
   crearReparto.mockResolvedValue(9);
   proximoNumeroRemito.mockResolvedValue(12);
@@ -150,6 +151,45 @@ describe("crearRepartoAction", () => {
         formaPago: "cuenta_corriente",
       }),
     );
+  });
+
+  it("con «cuenta corriente» y el lado «Flete Destino» registra el cliente del Destino", async () => {
+    const formData = new FormData();
+    formData.set("fecha", "2026-09-13");
+    formData.set("enviado_por", "Expreso Norte");
+    formData.set("recibido_por", "Distribuidora Sur");
+    formData.set("forma_pago", "cuenta_corriente");
+    formData.set("cliente_cc_lado", "destino");
+
+    await expect(crearRepartoAction(estadoInicial, formData)).rejects.toThrow(
+      SENAL_REDIRECT,
+    );
+
+    // El cliente que se registra/reutiliza es el del Flete Destino.
+    expect(obtenerOCrearClientePorNombre).toHaveBeenCalledWith(
+      "Distribuidora Sur",
+    );
+    expect(obtenerClientePorNombre).not.toHaveBeenCalled();
+    expect(crearReparto).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clienteId: 43,
+        recibidoPor: "Distribuidora Sur",
+        formaPago: "cuenta_corriente",
+      }),
+    );
+  });
+
+  it("con «cuenta corriente» y lado «Flete Destino» pide completar el Destino", async () => {
+    const formData = new FormData();
+    formData.set("fecha", "2026-09-13");
+    formData.set("enviado_por", "Expreso Norte");
+    formData.set("forma_pago", "cuenta_corriente");
+    formData.set("cliente_cc_lado", "destino");
+
+    const resultado = await crearRepartoAction(estadoInicial, formData);
+    expect(resultado.error).toContain("Flete");
+    expect(obtenerOCrearClientePorNombre).not.toHaveBeenCalled();
+    expect(crearReparto).not.toHaveBeenCalled();
   });
 
   it("deja la forma de pago vacía (por cobrar) cuando no se elige", async () => {
@@ -342,9 +382,10 @@ describe("actualizarFormaPagoRepartoAction", () => {
   });
 
   it("«cuenta corriente» registra y vincula el cliente del Envía del reparto", async () => {
-    obtenerEnviaReparto.mockResolvedValue({
+    obtenerPartesReparto.mockResolvedValue({
       clienteId: null,
       enviadoPor: "Almacén Don José",
+      recibidoPor: null,
     });
 
     const formData = new FormData();
@@ -356,7 +397,7 @@ describe("actualizarFormaPagoRepartoAction", () => {
       formData,
     );
     expect(resultado.error).toBeNull();
-    expect(obtenerEnviaReparto).toHaveBeenCalledWith(3);
+    expect(obtenerPartesReparto).toHaveBeenCalledWith(3);
     expect(obtenerOCrearClientePorNombre).toHaveBeenCalledWith(
       "Almacén Don José",
     );
@@ -367,8 +408,12 @@ describe("actualizarFormaPagoRepartoAction", () => {
     );
   });
 
-  it("rechaza «cuenta corriente» si el reparto no tiene un Envía", async () => {
-    obtenerEnviaReparto.mockResolvedValue({ clienteId: null, enviadoPor: null });
+  it("«cuenta corriente» usa el Flete Destino si el reparto no tiene Flete Origen", async () => {
+    obtenerPartesReparto.mockResolvedValue({
+      clienteId: null,
+      enviadoPor: null,
+      recibidoPor: "Distribuidora Sur",
+    });
 
     const formData = new FormData();
     formData.set("id", "3");
@@ -378,7 +423,57 @@ describe("actualizarFormaPagoRepartoAction", () => {
       estadoInicial,
       formData,
     );
-    expect(resultado.error).toContain("Envía");
+    expect(resultado.error).toBeNull();
+    expect(obtenerOCrearClientePorNombre).toHaveBeenCalledWith(
+      "Distribuidora Sur",
+    );
+    expect(actualizarFormaPagoReparto).toHaveBeenCalledWith(
+      3,
+      "cuenta_corriente",
+      43,
+    );
+  });
+
+  it("«cuenta corriente» conserva el cliente ya vinculado al reparto", async () => {
+    obtenerPartesReparto.mockResolvedValue({
+      clienteId: 88,
+      enviadoPor: "Comercio Nuevo",
+      recibidoPor: null,
+    });
+
+    const formData = new FormData();
+    formData.set("id", "3");
+    formData.set("forma_pago", "cuenta_corriente");
+
+    const resultado = await actualizarFormaPagoRepartoAction(
+      estadoInicial,
+      formData,
+    );
+    expect(resultado.error).toBeNull();
+    expect(obtenerOCrearClientePorNombre).not.toHaveBeenCalled();
+    expect(actualizarFormaPagoReparto).toHaveBeenCalledWith(
+      3,
+      "cuenta_corriente",
+      88,
+    );
+  });
+
+  it("rechaza «cuenta corriente» si el reparto no tiene Flete Origen ni Destino", async () => {
+    obtenerPartesReparto.mockResolvedValue({
+      clienteId: null,
+      enviadoPor: null,
+      recibidoPor: null,
+    });
+
+    const formData = new FormData();
+    formData.set("id", "3");
+    formData.set("forma_pago", "cuenta_corriente");
+
+    const resultado = await actualizarFormaPagoRepartoAction(
+      estadoInicial,
+      formData,
+    );
+    expect(resultado.error).toContain("Flete");
     expect(obtenerOCrearClientePorNombre).not.toHaveBeenCalled();
     expect(actualizarFormaPagoReparto).not.toHaveBeenCalled();
   });

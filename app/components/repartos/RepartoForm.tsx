@@ -57,13 +57,18 @@ export function RepartoForm({
     { key: 0, descripcion: "", cantidad: "1", precio: "" },
   ]);
 
-  // Buscador de cliente (campo "Envía"): la lupa filtra los clientes ya
+  // Buscador de cliente (campo "Flete Origen"): la lupa filtra los clientes ya
   // cargados para poder vincular el reparto a uno existente. Si el cliente no
   // está en la lista, el reparto se guarda igual, sin crear ni vincular cliente.
+  // Con «Cuenta corriente» se elige además cuál de las dos puntas es el
+  // cliente que queda registrado: el Origen o el Destino.
   const [busqueda, setBusqueda] = useState("");
   const [clienteElegidoId, setClienteElegidoId] = useState<number | null>(null);
   const [listaAbierta, setListaAbierta] = useState(false);
   const [formaPago, setFormaPago] = useState("");
+  const [clienteCcLado, setClienteCcLado] = useState<"origen" | "destino">(
+    "origen",
+  );
 
   const clientesFiltrados = useMemo(() => {
     const termino = busqueda.trim().toLowerCase();
@@ -147,10 +152,10 @@ export function RepartoForm({
           />
         </Field>
         <Field
-          label="Cliente (Envía)"
+          label="Flete Origen (quién envía)"
           htmlFor="cliente_buscar"
           required
-          hint="Si la forma de pago es Cuenta corriente, el cliente del campo Envía se registra automáticamente al guardar (se crea si no está cargado). Con otras formas, si no está en la lista, el reparto se guarda igual con el nombre escrito, sin crear ni vincular un cliente."
+          hint="Quién envía el reparto: usá la lupa para elegir un cliente ya cargado, o escribí un nombre. Si la forma de pago es «Cuenta corriente» se registra automáticamente el cliente del lado que elijas debajo (se crea si no está cargado). Con otras formas, si el nombre no está en la lista, el reparto se guarda igual sin crear ni vincular un cliente."
         >
           <div className="relative">
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-zinc-400">
@@ -225,27 +230,40 @@ export function RepartoForm({
                 {clientesFiltrados.length === 0 && (
                   <li className="flex w-full items-center gap-2 border-t border-zinc-100 px-3 py-2 text-left text-sm text-zinc-500">
                     «{busqueda.trim()}» no está en la lista de clientes.{" "}
-                    {formaPago === "cuenta_corriente"
+                    {formaPago === "cuenta_corriente" && clienteCcLado === "origen"
                       ? "Se creará automáticamente como cliente (cuenta corriente) al guardar el reparto."
-                      : "El reparto se guardará igual, sin crear este cliente."}
+                      : formaPago === "cuenta_corriente"
+                        ? "Se creará el cliente del Flete Destino al guardar el reparto."
+                        : "El reparto se guardará igual, sin crear este cliente."}
                   </li>
                 )}
               </ul>
             )}
           </div>
         </Field>
-        <Field label="Recibe" htmlFor="recibido_por">
+        <Field
+          label="Flete Destino (quién recibe)"
+          htmlFor="recibido_por"
+          hint={
+            formaPago === "cuenta_corriente" && clienteCcLado === "destino"
+              ? "Este nombre queda registrado como cliente en cuenta corriente al guardar."
+              : undefined
+          }
+        >
           <Input
             id="recibido_por"
             name="recibido_por"
             placeholder="Ej: María Gómez"
+            required={
+              formaPago === "cuenta_corriente" && clienteCcLado === "destino"
+            }
             disabled={pending}
           />
         </Field>
         <Field
           label="Forma de pago"
           htmlFor="forma_pago"
-          hint="Dejalo en «Por cobrar» si todavía no te lo pagan. Con «Cuenta corriente» el cliente (Envía) se registra automáticamente."
+          hint="Dejalo en «Por cobrar» si todavía no te lo pagan. Con «Cuenta corriente» elegí debajo si el cliente es el Flete Origen o el Flete Destino."
         >
           <Select
             id="forma_pago"
@@ -265,6 +283,54 @@ export function RepartoForm({
         </Field>
       </div>
 
+      {formaPago === "cuenta_corriente" && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+          <p className="text-sm font-medium text-zinc-800">
+            Cliente en cuenta corriente
+          </p>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            Elegí cuál de las dos puntas es el cliente que queda registrado. Se
+            crea con ese nombre si todavía no está cargado.
+          </p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+              <input
+                type="radio"
+                name="cliente_cc_lado"
+                value="origen"
+                checked={clienteCcLado === "origen"}
+                onChange={() => setClienteCcLado("origen")}
+                disabled={pending}
+                className="mt-0.5 size-4 shrink-0 accent-emerald-600"
+              />
+              <span>
+                <span className="font-medium text-zinc-900">Flete Origen</span>
+                <span className="block text-xs text-zinc-500">
+                  Es el cliente el que envía el reparto
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+              <input
+                type="radio"
+                name="cliente_cc_lado"
+                value="destino"
+                checked={clienteCcLado === "destino"}
+                onChange={() => setClienteCcLado("destino")}
+                disabled={pending}
+                className="mt-0.5 size-4 shrink-0 accent-emerald-600"
+              />
+              <span>
+                <span className="font-medium text-zinc-900">Flete Destino</span>
+                <span className="block text-xs text-zinc-500">
+                  Es el cliente el que recibe el reparto
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-lg border border-zinc-200 p-3">
         <label className="flex cursor-pointer items-center gap-3">
           <input
@@ -281,7 +347,7 @@ export function RepartoForm({
         </label>
         <p className="mt-1 pl-7 text-xs text-zinc-500">
           Si lo tildás, emitís el remito acá mismo y queda asociado al cliente
-          del campo “Envía”. Igual podés cargar mercadería directa del reparto
+          del Flete Origen. Igual podés cargar mercadería directa del reparto
           (una caja, un sobre…) más abajo, además del remito.
         </p>
       </div>
@@ -300,7 +366,7 @@ export function RepartoForm({
             </Button>
           </div>
           <p className="text-xs text-zinc-500">
-            El remito se emite a nombre del cliente del campo “Envía” y queda
+            El remito se emite a nombre del cliente del Flete Origen y queda
             asignado a este reparto.
           </p>
 

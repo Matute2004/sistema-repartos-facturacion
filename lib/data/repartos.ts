@@ -81,6 +81,17 @@ export async function listarRepartosDelDia(fecha: string): Promise<Reparto[]> {
   );
 }
 
+/** Fechas de un mes (YYYY-MM) que tienen al menos un reparto: alimenta el
+ *  calendario de la Hoja de Ruta para marcar los días con actividad. */
+export async function listarDiasConRepartosDelMes(mes: string): Promise<string[]> {
+  const db = await getDb();
+  const resultado = await db.execute(
+    "SELECT DISTINCT fecha FROM repartos WHERE substr(fecha, 1, 7) = ? ORDER BY fecha ASC",
+    [mes],
+  );
+  return resultado.rows.map((fila) => String((fila as Fila).fecha));
+}
+
 /** Resumen de cobros de un día (hoja de ruta): total, cobrado y por cobrar. */
 export interface ResumenDia {
   /** Cantidad total de repartos del día. */
@@ -325,14 +336,19 @@ export async function actualizarFormaPagoReparto(
   }
 }
 
-/** Devuelve el "Envía" (nombre en texto) y el cliente vinculado de un reparto.
- *  Liviano: sirve para resolver/crear el cliente al cobrar en cuenta corriente. */
-export async function obtenerEnviaReparto(
+/** Devuelve el Flete Origen, el Flete Destino y el cliente vinculado de un
+ *  reparto. Liviano: sirve para resolver/crear el cliente al cobrar en
+ *  cuenta corriente. */
+export async function obtenerPartesReparto(
   id: number,
-): Promise<{ clienteId: number | null; enviadoPor: string | null } | null> {
+): Promise<{
+  clienteId: number | null;
+  enviadoPor: string | null;
+  recibidoPor: string | null;
+} | null> {
   const db = await getDb();
   const resultado = await db.execute(
-    "SELECT cliente_id, chofer AS enviado_por FROM repartos WHERE id = ?",
+    "SELECT cliente_id, chofer AS enviado_por, vehiculo AS recibido_por FROM repartos WHERE id = ?",
     [id],
   );
   if (resultado.rows.length === 0) return null;
@@ -340,6 +356,7 @@ export async function obtenerEnviaReparto(
   return {
     clienteId: fila.cliente_id != null ? Number(fila.cliente_id) : null,
     enviadoPor: fila.enviado_por ? String(fila.enviado_por) : null,
+    recibidoPor: fila.recibido_por ? String(fila.recibido_por) : null,
   };
 }
 

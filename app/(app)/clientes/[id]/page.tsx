@@ -134,7 +134,7 @@ export default async function DetalleClientePage({
             <thead>
               <tr>
                 <Th>Fecha</Th>
-                <Th>Recibe</Th>
+                <Th>Flete Destino</Th>
                 <Th>Observaciones</Th>
                 <Th>Remitos</Th>
                 <Th className="text-right">Valor</Th>
@@ -169,7 +169,11 @@ export default async function DetalleClientePage({
                       <RemitoModal remitos={reparto.remitos} />
                     )}
                   </Td>
-                  <Td className="whitespace-nowrap text-right font-medium text-zinc-900">
+                  <Td
+                    className={`whitespace-nowrap text-right font-semibold ${
+                      reparto.cobrado ? "text-emerald-700" : "text-red-600"
+                    }`}
+                  >
                     {formatPesos(reparto.valorCentavos)}
                   </Td>
                   <Td className="whitespace-nowrap">

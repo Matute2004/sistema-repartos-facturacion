@@ -17,6 +17,7 @@ import {
 import {
   crearGasto,
   listarGastos,
+  listarGastosDelDia,
   listarGastosDelMes,
   listarGastosDelMesConTotal,
   totalGastos,
@@ -26,8 +27,10 @@ import {
   actualizarFormaPagoReparto,
   asignarRemitosAReparto,
   crearReparto,
+  listarDiasConRepartosDelMes,
   listarRepartos,
   listarRepartosDelCliente,
+  obtenerPartesReparto,
   obtenerReparto,
 } from "@/lib/data/repartos";
 import {
@@ -478,6 +481,37 @@ describe("flujo repartos y asignación de remitos", () => {
     expect(deudaB).toBe(100);
     expect(deudaSinRepartos).toBe(0);
   });
+
+  it("lista los días del mes que tienen repartos (calendario de la Hoja de Ruta)", async () => {
+    await crearReparto({ fecha: "2026-09-13", enviadoPor: "A" });
+    await crearReparto({ fecha: "2026-09-13", enviadoPor: "B" });
+    await crearReparto({ fecha: "2026-09-15", enviadoPor: "C" });
+    // Fuera del mes: no debe aparecer.
+    await crearReparto({ fecha: "2026-08-31", enviadoPor: "D" });
+
+    const dias = await listarDiasConRepartosDelMes("2026-09");
+    expect(dias).toEqual(["2026-09-13", "2026-09-15"]);
+    expect(await listarDiasConRepartosDelMes("2026-07")).toEqual([]);
+  });
+
+  it("devuelve el Flete Origen, el Flete Destino y el cliente del reparto", async () => {
+    const clienteId = await crearClienteBasico(14);
+    const repartoId = await crearReparto({
+      fecha: "2026-09-13",
+      clienteId,
+      enviadoPor: "Expreso Norte",
+      recibidoPor: "Distribuidora Sur",
+    });
+
+    const partes = await obtenerPartesReparto(repartoId);
+    expect(partes).toEqual({
+      clienteId,
+      enviadoPor: "Expreso Norte",
+      recibidoPor: "Distribuidora Sur",
+    });
+
+    expect(await obtenerPartesReparto(99999)).toBeNull();
+  });
 });
 
 describe("flujo gastos", () => {
@@ -540,6 +574,33 @@ describe("flujo gastos", () => {
     expect(septiembre[0].descripcion).toBe("Septiembre 1");
     expect(septiembre[1].descripcion).toBe("Septiembre 2");
     expect(await listarGastosDelMes("2026-07")).toHaveLength(0);
+  });
+
+  it("lista los gastos de UN día (Hoja de Ruta)", async () => {
+    await crearGasto({
+      fecha: "2026-09-13",
+      categoria: "combustible",
+      descripcion: "Nafta 13",
+      montoCentavos: 15000,
+    });
+    await crearGasto({
+      fecha: "2026-09-13",
+      categoria: "otros",
+      descripcion: "Peaje 13",
+      montoCentavos: 3000,
+    });
+    await crearGasto({
+      fecha: "2026-09-14",
+      categoria: "mecanico",
+      descripcion: "Cubierta 14",
+      montoCentavos: 8000,
+    });
+
+    const delDia13 = await listarGastosDelDia("2026-09-13");
+    expect(delDia13).toHaveLength(2);
+    expect(delDia13.reduce((t, g) => t + g.montoCentavos, 0)).toBe(18000);
+    expect(await listarGastosDelDia("2026-09-14")).toHaveLength(1);
+    expect(await listarGastosDelDia("2026-09-20")).toHaveLength(0);
   });
 });
 
