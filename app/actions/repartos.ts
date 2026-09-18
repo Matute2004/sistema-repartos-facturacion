@@ -15,6 +15,10 @@ import {
 import { crearRemito, proximoNumeroRemito } from "@/lib/data/remitos";
 import { FORMAS_PAGO, pesosACentavos } from "@/lib/types";
 import type { FormaPago } from "@/lib/types";
+import {
+  puedeEjecutarAccionSensible,
+  registrarAccionSensible,
+} from "@/lib/seguridad";
 
 function texto(formData: FormData, campo: string): string {
   return String(formData.get(campo) ?? "").trim();
@@ -104,7 +108,15 @@ export async function crearRepartoAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
-  await exigirAdmin();
+  const usuario = await exigirAdmin();
+
+  // SEGURIDAD: rate limiting para crear repartos
+  const puedeCrear = await puedeEjecutarAccionSensible("usuario", usuario.nombre);
+  if (!puedeCrear) {
+    return { 
+      error: "Demasiadas solicitudes recientes. Esperá un momento e intentá de nuevo.",
+    };
+  }
 
   const fecha = texto(formData, "fecha");
   if (!fecha) {
@@ -207,8 +219,9 @@ export async function crearRepartoAction(
     if (repartoId && remitosSeleccionados.length > 0) {
       await asignarRemitosAReparto(repartoId, remitosSeleccionados);
     }
-  } catch (error) {
-    console.error("[repartos] error al crear:", error);
+  } catch {
+    // No exponer detalles del error al usuario
+    console.error("[repartos] error al crear");
     return { error: "No se pudo guardar el reparto. Intentá de nuevo." };
   }
 
@@ -290,8 +303,9 @@ export async function actualizarFormaPagoRepartoAction(
     } else {
       await actualizarFormaPagoReparto(id, formaPago);
     }
-  } catch (error) {
-    console.error("[repartos] error al actualizar forma de pago:", error);
+  } catch {
+    // No exponer detalles del error al usuario
+    console.error("[repartos] error al actualizar forma de pago");
     return { error: "No se pudo actualizar la forma de pago." };
   }
 
@@ -323,8 +337,9 @@ export async function asignarRemitosAction(
 
   try {
     await asignarRemitosAReparto(repartoId, remitosSeleccionados);
-  } catch (error) {
-    console.error("[repartos] error al asignar remitos:", error);
+  } catch {
+    // No exponer detalles del error al usuario
+    console.error("[repartos] error al asignar remitos");
     return { error: "No se pudieron asignar los remitos." };
   }
 
@@ -351,8 +366,9 @@ export async function eliminarRepartoAction(
 
   try {
     await eliminarReparto(id);
-  } catch (error) {
-    console.error("[repartos] error al eliminar:", error);
+  } catch {
+    // No exponer detalles del error al usuario
+    console.error("[repartos] error al eliminar");
     return { error: "No se pudo eliminar el reparto." };
   }
 

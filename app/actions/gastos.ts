@@ -61,8 +61,9 @@ export async function crearGastoAction(
       proveedor: textoOpcional(formData, "proveedor"),
       montoCentavos: monto,
     });
-  } catch (error) {
-    console.error("[gastos] error al registrar:", error);
+  } catch {
+    // No exponer detalles del error al usuario
+    console.error("[gastos] error al registrar");
     return {
       error: "No se pudo registrar el gasto. Intentá de nuevo.",
     };
@@ -89,8 +90,9 @@ export async function eliminarGastoAction(
 
   try {
     await eliminarGastoDb(id);
-  } catch (error) {
-    console.error("[gastos] error al eliminar:", error);
+  } catch {
+    // No exponer detalles del error al usuario
+    console.error("[gastos] error al eliminar");
     return { error: "No se pudo eliminar el gasto. Intentá de nuevo." };
   }
 

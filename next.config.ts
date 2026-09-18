@@ -1,19 +1,41 @@
 import type { NextConfig } from "next";
 
 /**
- * Headers de seguridad básicos (ver docs de Next.js: next-config-js/headers).
- * `Strict-Transport-Security` (HSTS) solo se agrega en producción, porque en
- * http local el navegador ignora el header y puede confundir al login.
- * Nota: una CSP estricta (`default-src 'self'`) es viable pero conviene
- * probarla en el deploy real antes de activarla (Next dev usa eval para HMR).
+ * Headers de seguridad completos para producción.
+ * 
+ * Incluye:
+ * - X-Content-Type-Options: nosniff (previene MIME sniffing)
+ * - X-Frame-Options: SAMEORIGIN (previene clickjacking)
+ * - Referrer-Policy: strict-origin-when-cross-origin
+ * - Permissions-Policy: restricciones para APIs sensibles
+ * - Cross-Origin policies: aislamiento de recursos
+ * - CSP: Content Security Policy mejorada
+ * 
+ * HSTS solo en producción (el header puede causar problemas en desarrollo).
  */
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+  // CSP más restrictiva:
+  // - default-src 'self': solo recursos del mismo origen por defecto
+  // - script-src 'self': solo scripts propios (sin inline en producción)
+  // - style-src 'self' 'unsafe-inline': necesario para Tailwind + Next.js
+  // - font-src: fuentes de Google
+  // - img-src: imágenes del mismo origen + data: + blob:
+  // - connect-src: solo mismo origen + APIs necesarias
+  // - frame-ancestors: previene clickjacking en iframes
+  { 
+    key: "Content-Security-Policy", 
+    value: 
+      process.env.NODE_ENV === "production"
+        ? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+        : "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self';"
+  },
 ];
 
 const nextConfig: NextConfig = {

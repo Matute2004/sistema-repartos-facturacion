@@ -82,10 +82,9 @@ export async function iniciarSesionAction(
   let usuario: Usuario | null;
   try {
     usuario = await obtenerUsuarioPorNombre(nombre);
-  } catch (error) {
-    // La base remota (Turso) no está alcanzable o mal configurada. En vez de
-    // tirar la página de error 500 de Vercel, mostramos un mensaje claro.
-    console.error("[auth] login: error de base de datos:", error);
+  } catch {
+    // No exponer detalles del error al usuario
+    console.error("[auth] login: error de base de datos");
     return {
       error:
         "No se pudo conectar con la base de datos (Turso). " +
@@ -159,8 +158,18 @@ export async function cambiarPasswordAction(
   if (!anterior || !nueva) {
     return { error: "Completá la contraseña anterior y la nueva.", ok: false };
   }
-  if (nueva.length < 4) {
-    return { error: "La contraseña nueva debe tener al menos 4 caracteres.", ok: false };
+  if (nueva.length < 8) {
+    return { error: "La contraseña nueva debe tener al menos 8 caracteres.", ok: false };
+  }
+  // Validar complejidad: al menos una mayúscula, una minúscula y un número
+  const tieneMayuscula = /[A-Z]/.test(nueva);
+  const tieneMinuscula = /[a-z]/.test(nueva);
+  const tieneNumero = /[0-9]/.test(nueva);
+  if (!tieneMayuscula || !tieneMinuscula || !tieneNumero) {
+    return { 
+      error: "La contraseña debe tener al menos una mayúscula, una minúscula y un número.", 
+      ok: false 
+    };
   }
   if (nueva === anterior) {
     return { error: "La contraseña nueva debe ser distinta a la anterior.", ok: false };
@@ -173,8 +182,9 @@ export async function cambiarPasswordAction(
 
   try {
     await actualizarPassword(usuario.id, hashearPassword(nueva));
-  } catch (error) {
-    console.error("[auth] error al cambiar password:", error);
+  } catch {
+    // No exponer detalles del error al usuario
+    console.error("[auth] error al cambiar password");
     return { error: "No se pudo actualizar la contraseña. Intentá de nuevo.", ok: false };
   }
 

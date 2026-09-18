@@ -72,8 +72,9 @@ export async function crearVehiculoAction(
 
   try {
     await crearVehiculo(datos);
-  } catch (error) {
-    console.error("[vehiculos] error al crear:", error);
+  } catch {
+    // No exponer detalles del error al usuario
+    console.error("[vehiculos] error al crear");
     return {
       error: "No se pudo guardar el vehículo. Revisá los datos e intentá de nuevo.",
     };

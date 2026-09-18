@@ -2,7 +2,10 @@ import { obtenerUsuarioActual } from "@/lib/auth";
 import { obtenerRemitoCompleto } from "@/lib/data/remitos";
 
 /**
- * Devuelve el detalle completo de un remito (remito + cliente + items) en JSON.
+ * Devuelve datos resumidos de un remito para el modal de visualización.
+ * SOLO devuelve información necesaria para mostrar, nunca datos sensibles
+ * como CUIT, dirección completa, email, teléfono o notas del cliente.
+ * 
  * Lo consume el modal de remitos del listado de repartos.
  *
  * El route handler no lleva `dynamic = "force-dynamic"`: con Cache Components
@@ -24,10 +27,19 @@ export async function GET(
     return Response.json({ error: "Remito no encontrado." }, { status: 404 });
   }
 
+  // SEGURIDAD: NO exponer datos sensibles del cliente
+  // Solo devolver información necesaria para mostrar en el modal
   return Response.json({
     remito: completo.remito,
     reparto: completo.reparto,
-    cliente: completo.cliente,
+    // Cliente resumido: solo nombre (sin CUIT, dirección, email, teléfono, notas)
+    cliente: completo.cliente
+      ? {
+          id: completo.cliente.id,
+          numero: completo.cliente.numero,
+          nombre: completo.cliente.nombre,
+        }
+      : null,
     clienteNombre: completo.clienteNombre,
     items: completo.items,
   });

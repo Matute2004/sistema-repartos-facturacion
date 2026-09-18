@@ -15,6 +15,10 @@ import {
   normalizarFilaImportacion,
   type FilaClienteImportada,
 } from "@/lib/importacion";
+import {
+  puedeEjecutarAccionSensible,
+  registrarAccionSensible,
+} from "@/lib/seguridad";
 
 function texto(formData: FormData, campo: string): string {
   return String(formData.get(campo) ?? "").trim();
@@ -36,7 +40,16 @@ export async function crearClienteAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
-  await exigirAdmin();
+  const usuario = await exigirAdmin();
+
+  // SEGURIDAD: rate limiting para crear clientes
+  const puedeCrear = await puedeEjecutarAccionSensible("usuario", usuario.nombre);
+  if (!puedeCrear) {
+    return { 
+      error: "Demasiadas solicitudes recientes. Esperá un momento e intentá de nuevo.",
+    };
+  }
+
   const nombre = texto(formData, "nombre");
   if (!nombre) {
     return { error: "El nombre del cliente es obligatorio." };
@@ -53,8 +66,10 @@ export async function crearClienteAction(
       email: textoOpcional(formData, "email"),
       notas: textoOpcional(formData, "notas"),
     });
-  } catch (error) {
-    console.error("[clientes] error al crear:", error);
+    await registrarAccionSensible("usuario", usuario.nombre);
+  } catch {
+    // No exponer detalles del error al usuario
+    console.error("[clientes] error al crear");
     return {
       error: "No se pudo guardar el cliente. Revisá los datos e intentá de nuevo.",
     };
@@ -115,7 +130,16 @@ export async function eliminarClienteAction(
   _estado: EstadoAction,
   formData: FormData,
 ): Promise<EstadoAction> {
-  await exigirAdmin();
+  const usuario = await exigirAdmin();
+
+  // SEGURIDAD: rate limiting para eliminar clientes
+  const puedeEliminar = await puedeEjecutarAccionSensible("usuario", usuario.nombre);
+  if (!puedeEliminar) {
+    return { 
+      error: "Demasiadas solicitudes recientes. Esperá un momento e intentá de nuevo.",
+    };
+  }
+
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id) || id <= 0) {
     return { error: "Cliente inválido." };
@@ -123,8 +147,10 @@ export async function eliminarClienteAction(
 
   try {
     await eliminarClienteDb(id);
+    await registrarAccionSensible("usuario", usuario.nombre);
   } catch (error) {
-    console.error("[clientes] error al eliminar:", error);
+    // No exponer detalles del error al usuario
+    console.error("[clientes] error al eliminar");
     return {
       error: "No se pudo eliminar el cliente. Intentá de nuevo.",
     };
@@ -144,12 +170,24 @@ export async function eliminarClienteAction(
  * Importa clientes en lote. Recibe por FormData un JSON con un array de filas
  * { numero?, nombre, cuit?, direccion?, localidad?, telefono?, email?, notas? }
  * ya parseadas en el navegador (xlsx).
+ * 
+ * SEGURIDAD: incluye rate limiting para prevenir abuso.
  */
 export async function importarClientesAction(
   _estado: EstadoImportacion,
   formData: FormData,
 ): Promise<EstadoImportacion> {
-  await exigirAdmin();
+  const usuario = await exigirAdmin();
+
+  // SEGURIDAD: rate limiting para importaciones masivas
+  const puedeImportar = await puedeEjecutarAccionSensible("usuario", usuario.nombre);
+  if (!puedeImportar) {
+    return { 
+      error: "Demasiadas importaciones recientes. Esperá un momento e intentá de nuevo.",
+      resumen: null
+    };
+  }
+
   const filasJson = String(formData.get("filas") ?? "").trim();
   if (!filasJson) {
     return { error: "No se recibieron filas para importar.", resumen: null };
@@ -158,8 +196,9 @@ export async function importarClientesAction(
   let filas: unknown;
   try {
     filas = JSON.parse(filasJson);
-  } catch (error) {
-    console.error("[clientes] JSON inválido en importación:", error);
+  } catch {
+    // No exponer detalles del parsing al usuario
+    console.error("[clientes] JSON inválido en importación");
     return { error: "Los datos del archivo no se pudieron interpretar.", resumen: null };
   }
 
@@ -195,8 +234,12 @@ export async function importarClientesAction(
     const resultado = await crearClientesEnLote(filasValidas);
     importados = resultado.importados;
     errores = resultado.errores;
-  } catch (error) {
-    console.error("[clientes] error al importar lote:", error);
+
+    // SEGURIDAD: registrar acción exitosa para rate limiting
+    await registrarAccionSensible("usuario", usuario.nombre);
+  } catch {
+    // No exponer detalles del error al usuario
+    console.error("[clientes] error al importar lote");
     return {
       error: "No se pudo importar el archivo. Intentá de nuevo.",
       resumen: null,

@@ -98,8 +98,9 @@ export async function crearRemitoAction(
       observaciones: textoOpcional(formData, "observaciones"),
       items,
     });
-  } catch (error) {
-    console.error("[remitos] error al crear:", error);
+  } catch {
+    // No exponer detalles del error al usuario
+    console.error("[remitos] error al crear");
     return { error: "No se pudo guardar el remito. Intentá de nuevo." };
   }
 
@@ -126,8 +127,9 @@ export async function eliminarRemitoAction(
 
   try {
     await eliminarRemito(id);
-  } catch (error) {
-    console.error("[remitos] error al eliminar:", error);
+  } catch {
+    // No exponer detalles del error al usuario
+    console.error("[remitos] error al eliminar");
     return { error: "No se pudo eliminar el remito." };
   }
 

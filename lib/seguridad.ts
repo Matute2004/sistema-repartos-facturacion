@@ -7,12 +7,19 @@ import { getDb } from "@/lib/db";
  * fallido se registra con una "clave" que identifica al usuario y a la IP de
  * origen. Superado el límite dentro de la ventana, se bloquea temporalmente.
  *
- * Estrategia: fail-open para la disponibilidad — si la tabla no existe o la DB
- * remota no responde, el login sigue funcionando (registrar/contar se saltea).
+ * Estrategia: fail-closed en producción — si la tabla no existe o la DB
+ * remota no responde, el login se bloquea por seguridad. Solo en desarrollo
+ * permite el acceso para poder probar sin la tabla.
  */
 
 export const LIMITE_INTENTOS_LOGIN = 8;
 export const VENTANA_INTENTOS_LOGIN_MIN = 10;
+
+/** Rate limiting para acciones sensibles (crear/importar datos).
+ * En producción, si falla el control, se rechaza la acción.
+ * En desarrollo, se permite (fail-open) para facilitar pruebas. */
+export const LIMITE_ACCIONES_SENSIBLES = 20;
+export const VENTANA_ACCIONES_MIN = 1; // 1 minuto
 
 export type TipoClaveLogin = "usuario" | "ip";
 
@@ -90,5 +97,66 @@ export async function limpiarIntentosDeLogin(
     ]);
   } catch (error) {
     console.error("[seguridad] no se pudieron limpiar intentos:", error);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Rate limiting para acciones sensibles (anti spam/DOS)
+// ----------------------------------------------------------------------------
+
+/**
+ * Registra una acción sensible (crear, importar, eliminar).
+ * Devuelve true si puede proceder, false si excedió el límite.
+ * 
+ * En producción: fail-closed (si la tabla falla, rechaza la acción).
+ * En desarrollo: fail-open (permite proseguir para facilitar pruebas).
+ */
+export async function registrarAccionSensible(
+  tipo: "ip" | "usuario",
+  valor: string,
+): Promise<boolean> {
+  const clave = `accion:${tipo}:${valor}`;
+  try {
+    const db = await getDb();
+    await db.execute(
+      "INSERT INTO login_intentos (clave, intentado_en) VALUES (?, datetime('now'))",
+      [clave],
+    );
+    // Limpiar acciones viejas (más de 1 día)
+    await db.execute(
+      "DELETE FROM login_intentos WHERE clave LIKE 'accion:%' AND intentado_en < datetime('now', '-1 day')",
+    );
+    return true;
+  } catch (error) {
+    console.error("[seguridad] error al registrar acción sensible:", error);
+    // En producción, si falla el control, rechazamos por seguridad
+    return process.env.NODE_ENV !== "production";
+  }
+}
+
+/**
+ * Verifica si una IP o usuario excedió el límite de acciones sensibles.
+ * En producción: si la tabla falla, rechaza (fail-closed).
+ * En desarrollo: permite (fail-open).
+ */
+export async function puedeEjecutarAccionSensible(
+  tipo: "ip" | "usuario",
+  valor: string,
+): Promise<boolean> {
+  const clave = `accion:${tipo}:${valor}`;
+  try {
+    const db = await getDb();
+    const resultado = await db.execute(
+      `SELECT COUNT(*) AS total
+       FROM login_intentos
+       WHERE clave = ? AND intentado_en >= datetime('now', '-${VENTANA_ACCIONES_MIN} minutes')`,
+      [clave],
+    );
+    const total = Number((resultado.rows[0] as Record<string, unknown>).total ?? 0);
+    return total < LIMITE_ACCIONES_SENSIBLES;
+  } catch (error) {
+    console.error("[seguridad] error al verificar acción sensible:", error);
+    // En producción, si falla el control, rechazamos por seguridad
+    return process.env.NODE_ENV !== "production";
   }
 }

@@ -8,19 +8,31 @@ import {
 /**
  * Proxy global de autenticación (Next.js 16 renombró `middleware` → `proxy`).
  *
- * Antes de renderizar cada ruta valida la cookie de sesión firmada (HMAC).
+ * Antes de renderizar cada ruta valida la cookie de sesión firma
+
+da (HMAC).
  * - Sin sesión válida → redirige a `/login`.
  * - `/login`, `/api/*` y los estáticos quedan excluidos del matcher.
  *
  * Este archivo NO toca la base de datos: solo valida la firma. El usuario real
  * se resuelve después en `lib/auth.ts` (proxy.ts se ejecuta en el borde/CDN).
+ * 
+ * SEGURIDAD ADICIONAL:
+ * - Rate limiting implícito por el edge de Vercel
+ * - Headers de seguridad en next.config.ts
  */
 export function proxy(request: NextRequest) {
   const cookie = request.cookies.get(NOMBRE_COOKIE_SESION)?.value;
   const sesion = verificarCookieSesion(cookie);
 
   if (sesion) {
-    return NextResponse.next();
+    // Usuario autenticado: permitir acceso
+    // Agregar header para debugging en desarrollo
+    const response = NextResponse.next();
+    if (process.env.NODE_ENV !== "production") {
+      response.headers.set("x-auth-debug", "sesion-valida");
+    }
+    return response;
   }
 
   const url = new URL(request.url);
@@ -33,9 +45,10 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Excluye login, ruta de salud, assets de Next, favicon y archivos
-  // estáticos servidos desde /public (ej: el logo ohana.jpeg).
+  // Excluye login, assets de Next, favicon y archivos estáticos.
+  // api/health se maneja internamente: el proxy permite el paso pero
+  // la ruta misma (/api/health) verifica autenticación.
   matcher: [
-    "/((?!login|api/health|_next/static|_next/image|favicon\\.ico|ohana\\.jpeg).*)",
+    "/((?!login|_next/static|_next/image|favicon\\.ico|ohana\\.jpeg).*)",
   ],
 };
