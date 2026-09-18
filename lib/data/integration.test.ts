@@ -27,7 +27,7 @@ import {
   actualizarFormaPagoReparto,
   asignarRemitosAReparto,
   crearReparto,
-  listarDiasConRepartosDelMes,
+  obtenerHojaDeRutaDia,
   listarRepartos,
   listarRepartosDelCliente,
   obtenerPartesReparto,
@@ -527,9 +527,11 @@ describe("flujo repartos y asignación de remitos", () => {
     // Fuera del mes: no debe aparecer.
     await crearReparto({ fecha: "2026-08-31", enviadoPor: "D" });
 
-    const dias = await listarDiasConRepartosDelMes("2026-09");
-    expect(dias).toEqual(["2026-09-13", "2026-09-15"]);
-    expect(await listarDiasConRepartosDelMes("2026-07")).toEqual([]);
+    const hoja1 = await obtenerHojaDeRutaDia("2026-09-13");
+    expect(hoja1.diasConRepartos).toEqual(["2026-09-13", "2026-09-15"]);
+    
+    const hoja2 = await obtenerHojaDeRutaDia("2026-07-15");
+    expect(hoja2.diasConRepartos).toEqual([]);
   });
 
   it("devuelve el Flete Origen, el Flete Destino y el cliente del reparto", async () => {

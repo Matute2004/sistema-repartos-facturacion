@@ -1,105 +1,28 @@
-# Ohana Comisiones — Sistema de repartos y facturación
+# Ohana Comisiones
 
-Sistema de gestión para un comercio: **clientes, repartos (hojas de ruta),
-remitos con detalle de mercadería, vehículos (kilómetros y services), gastos
-operativos y facturación**. Con login por usuario y sesión firmada.
+Sistema de gestión integral para comercios de distribución.
 
-Stack: **Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS v4**,
-base de datos **SQLite local (desarrollo) / Turso (libSQL) en producción**.
+---
 
-## Requisitos
+## ¿Qué resuelve?
 
-- Node.js 20+ (el proyecto usa `--env-file-if-exists`, disponible desde Node 20.6)
+Llevar todo manualmente es caótico: ¿quién debe qué?, ¿qué se entregó hoy?, ¿cuánto cobrar?, ¿gastos de la semana?
 
-## Puesta en marcha (local)
+Este sistema centraliza **clientes, repartos, remitos, facturación y gastos** en un solo lugar, accesible desde cualquier dispositivo.
 
-```bash
-npm install
-npm run db:migrate   # crea el esquema en local.db y siembra Matute / OhanaTeam
-npm run dev          # http://localhost:3000
-```
+---
 
-Credenciales iniciales (por defecto, la contraseña es el mismo nombre):
+## Qué podés hacer
 
-| Usuario    | Rol |
-|------------|-----|
-| `Matute`   | admin |
-| `OhanaTeam`| admin |
+**👥 Clientes** - Registrar, editar, importar desde Excel y ver estado de cuenta
 
-> En producción cambialas desde el menú **Cuenta → Cambiar contraseña**.
+**📍 Repartos** - Armar rutas de entrega, registrar entregas y calcular deudas automáticamente
 
-## Variables de entorno
+**📄 Remitos** - Generar comprobantes con numeración correlativa
 
-Copiá `.env.example` a `.env.local` y completá:
+**💰 Facturación** - Emitir facturas y registrar pagos
 
-| Variable | Descripción |
-|----------|-------------|
-| `TURSO_DATABASE_URLL` | URL de la base remota Turso (`libsql://…`). Si está vacía, cae a SQLite local. |
-| `TURSO_AUTH_TOKENN` | Token de Turso (nombres históricos con doble letra, usalos igual en Vercel). |
-| `SESSION_SECRET` | Secreto para firmar las cookies de sesión. Generalo con `openssl rand -hex 32`. |
-| `LOCAL_DB_FILE` | (opcional) Ruta de la SQLite local. Solo para tests/desarrollo avanzado. |
+**📊 Gastos** - Categorizar y controlar gastos operativos
 
-## Scripts
+**📈 Dashboard** - Resumen visual del negocio en tiempo real
 
-| Comando | Qué hace |
-|---------|----------|
-| `npm run dev` | Servidor de desarrollo |
-| `npm run build` / `npm run start` | Build y servidor de producción |
-| `npm run lint` | ESLint |
-| `npm test` | Suite de tests (Vitest) |
-| `npm run db:migrate` | Migración idempotente del esquema + seed de usuarios |
-
-## Arquitectura
-
-- `lib/schema.sql` + `lib/migrate.ts` / `scripts/migrate.mjs`: esquema y migraciones idempotentes.
-- `lib/data/*`: acceso a la base de datos (SQL parametrizado, mapeo tipado).
-- `app/actions/*`: Server Actions con validación y **guard `exigirAdmin()`**
-  (todo el sistema opera con un único rol: admin).
-- `app/components/*`: componentes de UI (formularios, tablas, botones).
-- `proxy.ts`: autenticación por cookie firmada (HMAC-SHA256) en el borde.
-
-Convenciones del dominio:
-
-- El dinero se guarda **siempre en centavos** (`INTEGER`) para evitar
-  errores de punto flotante. Ver `lib/types.ts`.
-- Los estados de reparto/remito están centralizados en `lib/estados.ts`.
-- Las fechas se guardan como `TEXT` en formato `YYYY-MM-DD`.
-
-## Seguridad
-
-- **Login**: passwords con `scrypt` (salt por usuario), cookie de sesión
-  firmada con HMAC-SHA256 (`httpOnly`, `SameSite=Lax`, expiración 30 días) y
-  **control de fuerza bruta**: 8 intentos fallidos por usuario o IP bloquean
-  el login por 10 minutos (tabla `login_intentos`, creada en `db:migrate`).
-- **Acceso**: todas las páginas y Server Actions pasan por `exigirAdmin()`.
-  No existe rol de menor privilegio: todos los usuarios son administradores.
-- **PII de clientes**: las listas que van al navegador usan vistas livianas
-  (sin notas internas ni fechas); las notas solo se ven en el detalle.
-  La importación masiva recorta campos a un largo máximo, limita a
-  `5000` filas por lote e inserta por `batch` (no una query por fila).
-- **Headers HTTP**: `X-Content-Type-Options`, `X-Frame-Options`,
-  `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` y
-  `Cross-Origin-Resource-Policy` en toda la app; `Strict-Transport-Security`
-  (HSTS) solo en producción. Una CSP estricta es viable pero conviene probarla
-  en el deploy real antes de activarla (ver `next.config.ts`).
-- **SQL**: todas las consultas usan parámetros (`?`); no hay interpolación de
-  strings del usuario en SQL.
-
-## Tests
-
-```bash
-npm test            # una pasada
-npm run test:watch  # modo watch
-```
-
-Cubren: utilidades de dinero/fechas, passwords (scrypt), sesión (HMAC),
-lógica de Server Actions (validación, redirecciones) y flujos de la capa de
-datos sobre una SQLite temporal aislada (`LOCAL_DB_FILE`).
-
-## Deploy (Vercel)
-
-Configurá en el proyecto: `TURSO_DATABASE_URLL`, `TURSO_AUTH_TOKENN` y
-`SESSION_SECRET` (mismos nombres que en `.env.local`). El build es estándar
-de Next.js. La migración corre con `npm run db:migrate` contra la base remota
-(o se puede invocar `migrate()` desde un Route Handler si se quiere auto-migrar
-en el primer deploy).

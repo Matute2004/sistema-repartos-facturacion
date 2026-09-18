@@ -27,7 +27,9 @@ function normalizarNombre(nombre: string): string {
   return nombre.replace(/\s+/g, " ").trim();
 }
 
-/** Devuelve un usuario por su nombre exacto (case-insensitive). */
+/** Devuelve un usuario por su nombre exacto (case-insensitive).
+ *  Optimización: usa batch() para ejecutar ambas búsquedas en una sola consulta HTTP
+ *  (en lugar de 2 round-trips individuales que bloqueaban el login). */
 export async function obtenerUsuarioPorNombre(
   nombre: string,
 ): Promise<Usuario | null> {
@@ -35,21 +37,37 @@ export async function obtenerUsuarioPorNombre(
   const normalizado = normalizarNombre(nombre);
   if (!normalizado) return null;
 
-  // Primero intenta el nombre completo. Si el usuario escribió nombre y
-  // apellido (ej: "Matute Matute"), reintenta con la primera palabra.
-  const candidatos = [normalizado];
   const primeraPalabra = normalizado.split(" ")[0];
-  if (primeraPalabra !== normalizado) candidatos.push(primeraPalabra);
+  const haySegundaPalabra = primeraPalabra !== normalizado;
 
-  for (const candidato of candidatos) {
-    const resultado = await db.execute(
-      "SELECT * FROM usuarios WHERE nombre = ? COLLATE NOCASE LIMIT 1",
-      [candidato],
-    );
-    if (resultado.rows.length > 0) {
-      return mapearUsuario(resultado.rows[0] as FilaUsuario);
-    }
+  // Ejecuta ambas búsquedas en una sola llamada HTTP con batch().
+  // Si solo hay una palabra, batch ejecuta la misma consulta dos veces (seguro).
+  const resultados = await db.batch([
+    {
+      sql: "SELECT * FROM usuarios WHERE nombre = ? COLLATE NOCASE LIMIT 1",
+      args: [normalizado] as const,
+    },
+    haySegundaPalabra
+      ? {
+          sql: "SELECT * FROM usuarios WHERE nombre = ? COLLATE NOCASE LIMIT 1",
+          args: [primeraPalabra] as const,
+        }
+      : {
+          sql: "SELECT * FROM usuarios WHERE nombre = ? COLLATE NOCASE LIMIT 1",
+          args: [normalizado] as const,
+        },
+  ]);
+
+  // Primera búsqueda: nombre completo.
+  if (resultados[0].rows.length > 0) {
+    return mapearUsuario(resultados[0].rows[0] as FilaUsuario);
   }
+
+  // Segunda búsqueda: primera palabra (solo si es distinta).
+  if (haySegundaPalabra && resultados[1].rows.length > 0) {
+    return mapearUsuario(resultados[1].rows[0] as FilaUsuario);
+  }
+
   return null;
 }
 

@@ -1,15 +1,9 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import {
-  listarDiasConRepartosDelMes,
-  listarRepartosDelDia,
-  resumenDia,
-} from "@/lib/data/repartos";
-import { listarGastosDelDia } from "@/lib/data/gastos";
+import { obtenerHojaDeRutaDia } from "@/lib/data/repartos";
 import {
   esFechaValida,
   fechaHoyLocal,
-  fechaLegible,
   formatFecha,
   formatPesos,
   sumarDias,
@@ -25,41 +19,15 @@ import { CalendarioHojaRuta } from "@/app/components/repartos/CalendarioHojaRuta
 
 export const metadata = { title: "Hoja de Ruta" };
 
-/**
- * Hoja de Ruta: un calendario para elegir el día (y saltar de mes) más la
- * hoja de ruta de ese día: repartos, lo cobrado, los gastos y el rinde.
- * Al abrir el apartado muestra SIEMPRE el día actual.
- *
- * La fecha viaja en `?fecha=YYYY-MM-DD`. La lectura de searchParams queda
- * dentro de un Suspense para que el shell de la página se siga prerenderizando.
- */
 export default function HojaDeRutaPage({
   searchParams,
 }: {
   searchParams: Promise<{ fecha?: string }>;
 }) {
   return (
-    <div>
-      <PageHeader
-        title="Hoja de Ruta"
-        description="Elegí el día en el calendario y mirá lo cobrado, los gastos y lo que rindió cada jornada."
-      />
-      <Suspense
-        fallback={
-          <div className="animate-pulse space-y-4">
-            <div className="h-72 rounded-xl bg-zinc-100" />
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-24 rounded-xl bg-zinc-100" />
-              ))}
-            </div>
-            <div className="h-64 rounded-xl bg-zinc-100" />
-          </div>
-        }
-      >
-        <HojaDeRutaDelDia searchParams={searchParams} />
-      </Suspense>
-    </div>
+    <Suspense fallback={<div className="animate-pulse space-y-4"><div className="h-72 rounded-xl bg-zinc-100" /></div>}>
+      <HojaDeRutaDelDia searchParams={searchParams} />
+    </Suspense>
   );
 }
 
@@ -75,188 +43,71 @@ async function HojaDeRutaDelDia({
   const esHoy = fecha === hoy;
   const diaAnterior = sumarDias(fecha, -1);
   const diaSiguiente = sumarDias(fecha, 1);
-  const diasConRepartos = await listarDiasConRepartosDelMes(fecha.slice(0, 7));
 
-  return (
-    <div>
-      <CalendarioHojaRuta fecha={fecha} diasConRepartos={diasConRepartos} />
+  // OPTIMIZACIÓN CRÍTICA: 4 queries en 1 request HTTP
+  const { diasConRepartos, repartos, gastos, resumen } = await obtenerHojaDeRutaDia(fecha);
 
-      {/* Navegador rápido de un día a otro + alta de reparto */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-1">
-          <Link
-            href={`/repartos?fecha=${diaAnterior}`}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
-            aria-label="Ver la hoja de ruta del día anterior"
-          >
-            ← Ayer
-          </Link>
-          {!esHoy && (
-            <Link
-              href="/repartos"
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
-            >
-              Hoy
-            </Link>
-          )}
-          <Link
-            href={`/repartos?fecha=${diaSiguiente}`}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
-            aria-label="Ver la hoja de ruta del día siguiente"
-          >
-            Mañana →
-          </Link>
-        </div>
-
-        <div className="min-w-0 text-center">
-          <p className="truncate text-sm font-bold tracking-tight text-zinc-900 sm:text-base">
-            {fechaLegible(fecha)}
-          </p>
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-            {esHoy ? "Día de hoy" : formatFecha(fecha)}
-          </p>
-        </div>
-
-        <ButtonLink href={`/repartos/nuevo?fecha=${fecha}`} variant="primary">
-          + Nuevo reparto
-        </ButtonLink>
-      </div>
-
-      <ResumenYTablaDelDia fecha={fecha} />
-    </div>
-  );
-/** Resumen del día (cobrado + gastos + rinde) y la tabla de repartos. */
-async function ResumenYTablaDelDia({ fecha }: { fecha: string }) {
-  const [resumen, repartos, gastos] = await Promise.all([
-    resumenDia(fecha),
-    listarRepartosDelDia(fecha),
-    listarGastosDelDia(fecha),
-  ]);
-  const gastosCentavos = gastos.reduce(
-    (total, gasto) => total + gasto.montoCentavos,
-    0,
-  );
+  const gastosCentavos = gastos.reduce((acc, g) => acc + g.montoCentavos, 0);
   const rindeCentavos = resumen.cobradoCentavos - gastosCentavos;
   const rindePositivo = rindeCentavos >= 0;
 
   return (
     <div>
-      {/* Qué se cobró, qué se gastó y qué rindió el día, por separado */}
+      <PageHeader title="Hoja de Ruta" description="Elegí el día en el calendario." />
+      <CalendarioHojaRuta fecha={fecha} diasConRepartos={diasConRepartos} />
+
+      <div className="mb-4 flex items-center gap-3">
+        <Link href={`/repartos?fecha=${diaAnterior}`} className="rounded px-3 py-2 text-sm hover:bg-zinc-100">← Ayer</Link>
+        {!esHoy && <Link href="/repartos" className="rounded px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50">Hoy</Link>}
+        <Link href={`/repartos?fecha=${diaSiguiente}`} className="rounded px-3 py-2 text-sm hover:bg-zinc-100">Mañana →</Link>
+        <ButtonLink href={`/repartos/nuevo?fecha=${fecha}`}>+ Nuevo</ButtonLink>
+      </div>
+
       <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Total del día
-          </p>
-          <p className="mt-2 text-2xl font-bold tracking-tight text-zinc-900">
-            {formatPesos(resumen.totalCentavos)}
-          </p>
-          <p className="mt-1 text-xs text-zinc-400">
-            {resumen.cantidadTotal}{" "}
-            {resumen.cantidadTotal === 1 ? "reparto" : "repartos"}
-          </p>
+          <p className="text-xs font-semibold uppercase text-zinc-500">Total</p>
+          <p className="mt-2 text-2xl font-bold text-zinc-900">{formatPesos(resumen.totalCentavos)}</p>
+          <p className="mt-1 text-xs text-zinc-400">{resumen.cantidadTotal} repartos</p>
         </Card>
-
         <Card className="p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">
-            Cobrado
-          </p>
-          <p className="mt-2 text-2xl font-bold tracking-tight text-emerald-700">
-            {formatPesos(resumen.cobradoCentavos)}
-          </p>
-          <p className="mt-1 text-xs text-zinc-400">
-            {resumen.cantidadCobrados}{" "}
-            {resumen.cantidadCobrados === 1 ? "reparto" : "repartos"}{" "}
-            con forma de pago
-          </p>
+          <p className="text-xs font-semibold uppercase text-emerald-600">Cobrado</p>
+          <p className="mt-2 text-2xl font-bold text-emerald-700">{formatPesos(resumen.cobradoCentavos)}</p>
+          <p className="mt-1 text-xs text-zinc-400">{resumen.cantidadCobrados} con pago</p>
         </Card>
-
         <Card className="p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-rose-600">
-            Gastos del día
-          </p>
-          <p className="mt-2 text-2xl font-bold tracking-tight text-rose-700">
-            {formatPesos(gastosCentavos)}
-          </p>
-          <p className="mt-1 text-xs text-zinc-400">
-            {gastos.length === 0
-              ? "Sin gastos cargados"
-              : `${gastos.length} ${gastos.length === 1 ? "gasto" : "gastos"} del día`}
-          </p>
+          <p className="text-xs font-semibold uppercase text-rose-600">Gastos</p>
+          <p className="mt-2 text-2xl font-bold text-rose-700">{formatPesos(gastosCentavos)}</p>
+          <p className="mt-1 text-xs text-zinc-400">{gastos.length} gastos</p>
         </Card>
-
         <Card className="p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Rinde del día
-          </p>
-          <p
-            className={`mt-2 text-2xl font-bold tracking-tight ${
-              rindePositivo ? "text-emerald-700" : "text-red-700"
-            }`}
-          >
-            {formatPesos(rindeCentavos)}
-          </p>
+          <p className="text-xs font-semibold uppercase text-zinc-500">Rinde</p>
+          <p className={`mt-2 text-2xl font-bold ${rindePositivo ? "text-emerald-700" : "text-red-700"}`}>{formatPesos(rindeCentavos)}</p>
           <p className="mt-1 text-xs text-zinc-400">Cobrado − gastos</p>
         </Card>
       </div>
-{/* Qué se gastó ese día, para entender por qué rindió así */}
-      <Card className="mb-4">
-        <CardHeader
-          title={`Gastos del ${formatFecha(fecha)}`}
-          description={
-            gastos.length === 0
-              ? "No hay gastos cargados para este día."
-              : "Se restan de lo cobrado para ver si el día rindió."
-          }
-        />
-        {gastos.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-zinc-500">
-            Sin gastos cargados este día.
-          </p>
-        ) : (
-          <ul className="divide-y divide-zinc-100">
-            {gastos.map((gasto) => (
-              <li
-                key={gasto.id}
-                className="flex items-baseline justify-between gap-4 px-5 py-2.5 text-sm"
-              >
-                <span className="min-w-0">
-                  <span className="font-medium text-zinc-900">
-                    {gasto.descripcion}
-                  </span>
-                  {gasto.proveedor != null && (
-                    <span className="ml-2 text-xs text-zinc-400">
-                      {gasto.proveedor}
-                    </span>
-                  )}
-                </span>
-                <span className="whitespace-nowrap font-semibold text-rose-700">
-                  −{formatPesos(gasto.montoCentavos)}
-                </span>
+
+      {gastos.length > 0 && (
+        <Card className="mb-4">
+          <CardHeader title={`Gastos del ${formatFecha(fecha)}`} description="Se restan del cobrado." />
+          <ul className="divide-y">
+            {gastos.map((g) => (
+              <li key={g.id} className="flex justify-between px-5 py-2 text-sm">
+                <span className="font-medium">{g.descripcion}</span>
+                <span className="text-rose-700">−{formatPesos(g.montoCentavos)}</span>
               </li>
             ))}
           </ul>
-        )}
-      </Card>
+        </Card>
+      )}
 
       <Card>
-        <CardHeader
-          title={`Repartos del ${formatFecha(fecha)}`}
-          description="Tocá la fecha para abrir el detalle del reparto y asignar remitos."
-        />
+        <CardHeader title={`Repartos del ${formatFecha(fecha)}`} description="Detalle del día." />
         {repartos.length === 0 ? (
-          <div className="px-5 py-10 text-center">
-            <p className="text-sm font-medium text-zinc-700">
-              Este día no tiene repartos
-            </p>
-            <p className="mt-1 text-sm text-zinc-500">
-              Creá un reparto para armar la hoja de ruta de este día.
-            </p>
-          </div>
+          <p className="px-5 py-10 text-center text-zinc-600">Sin repartos</p>
         ) : (
           <RepartosTablaBusqueda repartos={repartos} />
         )}
       </Card>
     </div>
   );
-}
 }

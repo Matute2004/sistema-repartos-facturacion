@@ -100,6 +100,9 @@ export default function ClientesPage({
  * Clientes con su deuda acumulada, cacheados ~1 min para navegación
  * instantánea. Se invalida con revalidateTag al crear/editar/importar clientes
  * o al cambiar un reparto/remito que afecte la deuda (por eso esos tags).
+ *
+ * OPTIMIZACIÓN: Agregado "use cache" y cacheLife() para reducir consultas HTTP
+ * a Turso. Con Cache Components, entre navegaciones rápidas no se consulta nada.
  */
 async function cargarClientes() {
   "use cache";
