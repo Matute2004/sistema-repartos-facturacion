@@ -15,10 +15,6 @@
 // Seguridad: repartos.cliente_id usa ON DELETE SET NULL y ya está en NULL,
 // así que no rompe ningún dato referencial.
 // ============================================================================
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const url = process.env.TURSO_DATABASE_URLL;
 const authToken = process.env.TURSO_AUTH_TOKENN;

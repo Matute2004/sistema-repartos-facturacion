@@ -174,8 +174,8 @@ export async function obtenerHojaDeRutaDia(fecha: string): Promise<HojaDeRutaDia
   const repartoIds = resRepartos.rows.map((f) => Number((f as Fila).id));
   
   // Si hay repartos, cargar remitos e items en batch
-  let remitosMap: Map<number, RepartoRemitoLigero[]> = new Map();
-  let itemsMap: Map<number, RepartoItem[]> = new Map();
+  const remitosMap: Map<number, RepartoRemitoLigero[]> = new Map();
+  const itemsMap: Map<number, RepartoItem[]> = new Map();
   
   if (repartoIds.length > 0) {
     const [resRemitos, resItems] = await db.batch([
