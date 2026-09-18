@@ -30,3 +30,7 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          TURSO_DATABASE_URLL: ${{ secrets.TURSO_DATABASE_URLL }}
+          TURSO_AUTH_TOKENN: ${{ secrets.TURSO_AUTH_TOKENN }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
